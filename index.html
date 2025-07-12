@@ -2,136 +2,103 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>📄 Đọc hóa đơn GDT (TT78)</title>
+  <title>📄 Xem XML GDT đầy đủ</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
-    pre { background: #eee; padding: 10px; }
+    body { font-family: Arial; padding: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+    th { background: #eee; }
+    .header { margin-bottom: 15px; font-size: 15px; }
+    .chiethau { color: #a00; font-style: italic; }
   </style>
 </head>
 <body>
 
-<h2>📥 Nhập file ZIP chứa XML + HTML hóa đơn (GDT - TT78)</h2>
-
-<label>🔐 GitHub Token: 
-  <input id="tokenInput" style="width:300px">
-  <button onclick="saveToken()">💾 Lưu</button>
-</label><br><br>
-
+<h2>📥 Nhập file ZIP chứa XML hóa đơn GDT (TT78)</h2>
 <input type="file" id="zipInput" accept=".zip">
-<button onclick="handleZIP()">📂 Xử lý ZIP</button>
+<button onclick="handleZip()">📂 Xử lý ZIP</button>
 
-<div id="output"></div>
+<div id="info" class="header"></div>
+<table id="table"></table>
 
 <script>
-const repo = "Datkep92/test4";
-const folder = "hoadon";
-
-function saveToken() {
-  const token = document.getElementById("tokenInput").value;
-  if (token) {
-    localStorage.setItem("githubToken", token);
-    alert("✅ Token đã lưu.");
-  }
+function get(node, tag) {
+  return node?.getElementsByTagName(tag)[0]?.textContent?.trim() || "";
 }
 
-async function handleZIP() {
+async function handleZip() {
   const file = document.getElementById("zipInput").files[0];
-  if (!file) return alert("Chọn file ZIP trước.");
+  if (!file) return alert("Chọn file ZIP!");
 
-  const output = document.getElementById("output");
   const zip = await JSZip.loadAsync(file);
-
   const xmlFile = Object.values(zip.files).find(f => f.name.endsWith(".xml"));
-  const htmlFile = Object.values(zip.files).find(f => f.name.endsWith(".html"));
-
-  if (!xmlFile || !htmlFile) {
-    output.innerHTML = "<div class='result'>❌ Thiếu file XML hoặc HTML</div>";
-    return;
-  }
+  if (!xmlFile) return alert("❌ Không tìm thấy file XML!");
 
   const xmlText = await xmlFile.async("text");
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, "text/xml");
 
-  // Check if it's GDT format
   const hdon = xml.getElementsByTagName("HDon")[0];
-  if (!hdon) {
-    output.innerHTML = "<div class='result'>❌ Không đúng định dạng hóa đơn GDT (không tìm thấy <HDon>)</div>";
-    return;
-  }
-
-  const ttChung = hdon.getElementsByTagName("TTChung")[0];
-  const ndHDon = hdon.getElementsByTagName("NDHDon")[0];
-  const nBan = ndHDon?.getElementsByTagName("NBan")[0];
-  const nMua = ndHDon?.getElementsByTagName("NMua")[0];
-  const dshh = ndHDon?.getElementsByTagName("DSHHDVu")[0];
-  const ttoan = ndHDon?.getElementsByTagName("TToan")[0];
-
-  const getText = (node, tag) => node?.getElementsByTagName(tag)[0]?.textContent?.trim() || "";
+  const dlh = hdon?.getElementsByTagName("DLHDon")[0];
+  const chung = dlh?.getElementsByTagName("TTChung")[0];
+  const nd = dlh?.getElementsByTagName("NDHDon")[0];
+  const nban = nd?.getElementsByTagName("NBan")[0];
+  const nmua = nd?.getElementsByTagName("NMua")[0];
+  const dshh = nd?.getElementsByTagName("DSHHDVu")[0];
+  const ttoan = nd?.getElementsByTagName("TToan")[0];
 
   const info = {
-    soHD: getText(ttChung, "SHDon"),
-    ngay: getText(ttChung, "NLap"),
-    tenNBan: getText(nBan, "Ten"),
-    mstNBan: getText(nBan, "MST"),
-    tenNMua: getText(nMua, "Ten"),
-    mstNMua: getText(nMua, "MST"),
-    tongTien: getText(ttoan, "TgTTTBSo")
+    soHD: get(chung, "SHDon"),
+    ngay: get(chung, "NLap"),
+    mstNBan: get(nban, "MST"),
+    tenNBan: get(nban, "Ten"),
+    mstNMua: get(nmua, "MST"),
+    tenNMua: get(nmua, "Ten"),
+    tong: get(ttoan, "TgTTTBSo")
   };
 
-  const hangHoa = [...dshh.getElementsByTagName("HHDVu")].map(h => {
+  document.getElementById("info").innerHTML = `
+    🧾 <b>Người mua:</b> ${info.tenNMua} (${info.mstNMua})<br>
+    🏢 <b>Người bán:</b> ${info.tenNBan} (${info.mstNBan})<br>
+    📅 <b>Ngày:</b> ${info.ngay} – <b>Số HĐ:</b> ${info.soHD}<br>
+    💰 <b>Tổng tiền:</b> ${info.tong}
+  `;
+
+  const rows = [...dshh.getElementsByTagName("HHDVu")].map(h => {
     return {
-      stt: getText(h, "STT"),
-      ten: getText(h, "THHDVu"),
-      dvt: getText(h, "DVTinh"),
-      sl: getText(h, "SLuong"),
-      dg: getText(h, "DGia"),
-      tt: getText(h, "ThTien")
+      loai: get(h, "TChat") === "2" ? "Chiết khấu" : "Hàng hóa",
+      stt: get(h, "STT"),
+      ten: get(h, "THHDVu"),
+      dvt: get(h, "DVTinh"),
+      sl: get(h, "SLuong"),
+      dg: get(h, "DGia"),
+      thue: get(h, "TThue"),
+      thanhtien: get(h, "ThTien"),
+      tongtt: get(h.getElementsByTagName("TTKhac")[0], "Thành tiền thanh toán của hàng hóa")
     };
   });
 
-  const htmlText = await htmlFile.async("text");
-  const githubURL = await uploadToGitHub(htmlFile.name, htmlText);
-
-  output.innerHTML = `
-    <div class="result">
-      <b>🧾 Người mua:</b> ${info.tenNMua} (MST: ${info.mstNMua})<br>
-      <b>🏢 Người bán:</b> ${info.tenNBan} (MST: ${info.mstNBan})<br>
-      <b>📅 Ngày:</b> ${info.ngay} – <b>Số HĐ:</b> ${info.soHD}<br>
-      <b>💰 Tổng tiền:</b> ${info.tongTien}<br>
-      <b>🔗 HTML:</b> <a href="${githubURL}" target="_blank">${githubURL}</a>
-      <pre>${hangHoa.map(h =>
-        `- ${h.stt}. ${h.ten} (${h.sl} ${h.dvt}) x ${h.dg} = ${h.tt}`
-      ).join("\n")}</pre>
-    </div>
+  const table = document.getElementById("table");
+  table.innerHTML = `
+    <tr>
+      <th>STT</th><th>Loại</th><th>Tên hàng</th><th>SL</th><th>ĐVT</th>
+      <th>Đơn giá</th><th>Thành tiền</th><th>Thuế</th><th>Tổng TT</th>
+    </tr>
+    ${rows.map(r => `
+      <tr class="${r.loai === 'Chiết khấu' ? 'chiethau' : ''}">
+        <td>${r.stt}</td>
+        <td>${r.loai}</td>
+        <td>${r.ten}</td>
+        <td>${r.sl}</td>
+        <td>${r.dvt}</td>
+        <td>${r.dg}</td>
+        <td>${r.thanhtien}</td>
+        <td>${r.thue}</td>
+        <td>${r.tongtt}</td>
+      </tr>
+    `).join("")}
   `;
-}
-
-async function uploadToGitHub(fileName, content) {
-  const token = localStorage.getItem("githubToken");
-  if (!token) {
-    alert("❌ Chưa có token");
-    return "#";
-  }
-
-  const path = `${folder}/${Date.now()}_${fileName}`;
-  const api = `https://api.github.com/repos/${repo}/contents/${path}`;
-  const res = await fetch(api, {
-    method: "PUT",
-    headers: {
-      Authorization: "token " + token,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      message: "upload file",
-      content: btoa(unescape(encodeURIComponent(content)))
-    })
-  });
-
-  if (!res.ok) return "#";
-  return `https://${repo.split("/")[0]}.github.io/${repo.split("/")[1]}/${path}`;
 }
 </script>
 
