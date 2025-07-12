@@ -2,29 +2,27 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>🧾 Nhập ZIP Hóa đơn GDT</title>
+  <title>🧾 Test Hóa đơn XML GDT trong ZIP</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    input, button { margin: 5px; padding: 8px; }
-    .hoa-don { border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f8f8f8; }
-    .html-link { color: blue; text-decoration: underline; }
-    pre { background: #eee; padding: 10px; font-family: monospace; }
+    .invoice { border: 1px solid #ccc; margin-top: 10px; padding: 10px; background: #f9f9f9; }
+    pre { background: #eee; padding: 10px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <h2>📂 Nhập nhiều file ZIP hóa đơn từ hoadondientu.gdt.gov.vn</h2>
+  <h2>📥 Nhập file ZIP chứa XML + HTML hóa đơn GDT</h2>
 
   <label>🔐 Token GitHub:
-    <input type="password" id="tokenInput" placeholder="Personal Access Token" style="width:300px">
+    <input id="tokenInput" placeholder="Personal Access Token" style="width:300px">
     <button onclick="saveToken()">💾 Lưu token</button>
-  </label><br>
+  </label><br><br>
 
-  <input type="file" id="zipInput" multiple accept=".zip">
-  <button onclick="handleZIP()">📥 Xử lý file ZIP</button>
+  <input type="file" id="zipInput" accept=".zip">
+  <button onclick="handleZIP()">📂 Xử lý ZIP</button>
 
   <div id="output"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
     const repo = "Datkep92/test4";
     const folder = "hoadon";
@@ -33,73 +31,79 @@
       const token = document.getElementById("tokenInput").value;
       if (token) {
         localStorage.setItem("githubToken", token);
-        alert("✅ Đã lưu token");
+        alert("✅ Token đã lưu.");
       }
     }
 
     async function handleZIP() {
-      const files = document.getElementById('zipInput').files;
-      const output = document.getElementById('output');
-      output.innerHTML = '';
+      const file = document.getElementById("zipInput").files[0];
+      const output = document.getElementById("output");
+      if (!file) return alert("Chọn file ZIP trước.");
 
-      for (let file of files) {
-        const zip = await JSZip.loadAsync(file);
-        const xmlName = Object.keys(zip.files).find(f => f.endsWith(".xml"));
-        const htmlName = Object.keys(zip.files).find(f => f.endsWith(".html"));
+      const zip = await JSZip.loadAsync(file);
+      const xmlFile = Object.values(zip.files).find(f => f.name.endsWith(".xml"));
+      const htmlFile = Object.values(zip.files).find(f => f.name.endsWith(".html"));
 
-        if (!xmlName || !htmlName) {
-          output.innerHTML += `<div class="hoa-don">❌ Thiếu file XML hoặc HTML trong ${file.name}</div>`;
-          continue;
-        }
-
-        const xmlText = await zip.files[xmlName].async("text");
-        const htmlText = await zip.files[htmlName].async("text");
-
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(xmlText, "text/xml");
-
-        const { info, hang } = extractXMLData(xml);
-
-        // Upload HTML lên GitHub
-        const githubURL = await uploadToGitHub(htmlName, htmlText);
-
-        // Hiển thị
-        output.innerHTML += `
-          <div class="hoa-don">
-            🧾 <b>${info.buyerName}</b> (MST: ${info.buyerMST})<br>
-            🏢 Bán bởi: ${info.sellerName} (MST: ${info.sellerMST})<br>
-            📅 Ngày: ${info.date} – Số HĐ: ${info.number}<br>
-            💰 Tổng tiền: <b>${info.total}</b><br>
-            🔗 HTML: <a class="html-link" href="${githubURL}" target="_blank">${githubURL}</a>
-            <pre>${hang.map(h => 
-              `- ${h.stt}. ${h.ten} (${h.sl} ${h.dvt}) × ${h.dg} = ${h.tt}`
-            ).join("\n")}</pre>
-          </div>
-        `;
+      if (!xmlFile || !htmlFile) {
+        output.innerHTML = "<div class='invoice'>❌ Thiếu file XML hoặc HTML</div>";
+        return;
       }
+
+      const xmlText = await xmlFile.async("text");
+      const invoiceText = extractInvoiceContent(xmlText);
+      const xml = new DOMParser().parseFromString(invoiceText, "text/xml");
+      const htmlText = await htmlFile.async("text");
+
+      const { info, hang } = extractXMLData(xml);
+      const githubURL = await uploadToGitHub(htmlFile.name, htmlText);
+
+      output.innerHTML = `
+        <div class="invoice">
+          <b>🧾 Người mua:</b> ${info.buyerName} (MST: ${info.buyerMST})<br>
+          <b>🏢 Người bán:</b> ${info.sellerName} (MST: ${info.sellerMST})<br>
+          <b>📅 Ngày:</b> ${info.date} – <b>Số HĐ:</b> ${info.number}<br>
+          <b>💰 Tổng tiền:</b> ${info.total}<br>
+          <b>🔗 HTML:</b> <a href="${githubURL}" target="_blank">${githubURL}</a>
+          <pre>${hang.map(h =>
+            `- ${h.stt}. ${h.ten} (${h.sl} ${h.dvt}) x ${h.dg} = ${h.tt}`
+          ).join("\n")}</pre>
+        </div>
+      `;
+    }
+
+    function extractInvoiceContent(xmlText) {
+      const start = xmlText.indexOf("<Invoice");
+      const end = xmlText.indexOf("</Invoice>") + "</Invoice>".length;
+      return xmlText.slice(start, end);
     }
 
     function extractXMLData(xml) {
-      const get = (selector) => xml.querySelector(selector)?.textContent?.trim() || "";
+      const nsCBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+      const nsCAC = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+      const get = (ns, tag, index = 0) =>
+        xml.getElementsByTagNameNS(ns, tag)?.[index]?.textContent?.trim() || "";
 
       const info = {
-        sellerName: get("AccountingSupplierParty Name"),
-        sellerMST: get("AccountingSupplierParty CompanyID"),
-        buyerName: get("AccountingCustomerParty Name"),
-        buyerMST: get("AccountingCustomerParty CompanyID"),
-        date: get("IssueDate"),
-        total: get("LegalMonetaryTotal > PayableAmount") || "0",
-        number: get("ID"),
+        sellerName: get(nsCBC, "Name", 0),
+        sellerMST: get(nsCBC, "CompanyID", 0),
+        buyerName: get(nsCBC, "Name", 1),
+        buyerMST: get(nsCBC, "CompanyID", 1),
+        date: get(nsCBC, "IssueDate"),
+        number: get(nsCBC, "ID"),
+        total: get(nsCBC, "PayableAmount")
       };
 
-      const lines = [...xml.querySelectorAll("InvoiceLine")].map(line => ({
-        stt: line.querySelector("ID")?.textContent?.trim() || "",
-        ten: line.querySelector("Item > Name")?.textContent?.trim() || "",
-        dvt: line.querySelector("InvoicedQuantity")?.getAttribute("unitCode") || "",
-        sl: line.querySelector("InvoicedQuantity")?.textContent?.trim() || "",
-        dg: line.querySelector("Price > PriceAmount")?.textContent?.trim() || "",
-        tt: line.querySelector("LineExtensionAmount")?.textContent?.trim() || "",
-      }));
+      const lines = [...xml.getElementsByTagNameNS(nsCAC, "InvoiceLine")].map(line => {
+        const qtyNode = line.getElementsByTagNameNS(nsCBC, "InvoicedQuantity")[0];
+        return {
+          stt: line.getElementsByTagNameNS(nsCBC, "ID")[0]?.textContent?.trim() || "",
+          ten: line.getElementsByTagNameNS(nsCBC, "Name")[0]?.textContent?.trim() || "",
+          dvt: qtyNode?.getAttribute("unitCode") || "",
+          sl: qtyNode?.textContent?.trim() || "",
+          dg: line.getElementsByTagNameNS(nsCBC, "PriceAmount")[0]?.textContent?.trim() || "",
+          tt: line.getElementsByTagNameNS(nsCBC, "LineExtensionAmount")[0]?.textContent?.trim() || ""
+        };
+      });
 
       return { info, hang: lines };
     }
@@ -107,31 +111,25 @@
     async function uploadToGitHub(fileName, content) {
       const token = localStorage.getItem("githubToken");
       if (!token) {
-        alert("❌ Chưa có token GitHub");
+        alert("❌ Chưa có token");
         return "#";
       }
 
       const path = `${folder}/${Date.now()}_${fileName}`;
-      const apiURL = `https://api.github.com/repos/${repo}/contents/${path}`;
-      const body = {
-        message: `upload ${fileName}`,
-        content: btoa(unescape(encodeURIComponent(content))) // base64 encode
-      };
-
-      const res = await fetch(apiURL, {
+      const api = `https://api.github.com/repos/${repo}/contents/${path}`;
+      const res = await fetch(api, {
         method: "PUT",
         headers: {
-          Authorization: `token ${token}`,
+          Authorization: "token " + token,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+          message: "upload file",
+          content: btoa(unescape(encodeURIComponent(content)))
+        })
       });
 
-      if (!res.ok) {
-        alert("❌ Upload thất bại");
-        return "#";
-      }
-
+      if (!res.ok) return "#";
       return `https://${repo.split("/")[0]}.github.io/${repo.split("/")[1]}/${path}`;
     }
   </script>
