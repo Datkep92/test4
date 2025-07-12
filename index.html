@@ -3,560 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Hiển Thị Hóa Đơn Điện Tử</title>
+    <title>Trích xuất hóa đơn điện tử</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root {
-            --primary: #1a73e8;
-            --primary-dark: #0d47a1;
-            --secondary: #f5f5f5;
-            --border: #ddd;
-            --success: #28a745;
-            --text: #333;
-            --light-text: #666;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
         body {
-            background-color: #f8f9fa;
-            color: var(--text);
+            font-family: Arial, sans-serif;
             line-height: 1.6;
+            max-width: 1000px;
+            margin: 0 auto;
             padding: 20px;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        
-        header {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            padding: 20px;
+        h1 {
+            color: #1a73e8;
             text-align: center;
         }
-        
-        header h1 {
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        
-        header p {
-            opacity: 0.9;
-            font-size: 16px;
-        }
-        
-        .upload-section {
+        .upload-area {
+            border: 2px dashed #1a73e8;
             padding: 30px;
-            background: var(--secondary);
-            border-bottom: 1px solid var(--border);
             text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
         }
-        
-        .upload-box {
-            border: 2px dashed var(--primary);
-            border-radius: 8px;
-            padding: 30px;
-            background: white;
-            margin: 0 auto;
-            max-width: 600px;
-            transition: all 0.3s;
-        }
-        
-        .upload-box:hover {
-            border-color: var(--primary-dark);
-            background-color: #f0f7ff;
-        }
-        
-        .upload-box i {
-            font-size: 48px;
-            color: var(--primary);
-            margin-bottom: 15px;
-        }
-        
-        .upload-box p {
-            margin-bottom: 20px;
-            color: var(--light-text);
-        }
-        
-        .file-input {
-            display: none;
-        }
-        
-        .btn {
-            background: var(--primary);
+        button {
+            background: #1a73e8;
             color: white;
             border: none;
-            padding: 12px 25px;
+            padding: 10px 20px;
             border-radius: 5px;
-            font-size: 16px;
             cursor: pointer;
-            transition: background 0.3s;
-            display: inline-block;
-            margin: 0 5px;
         }
-        
-        .btn:hover {
-            background: var(--primary-dark);
-        }
-        
-        .btn-success {
-            background: var(--success);
-        }
-        
-        .invoice-section {
-            padding: 30px;
-            display: none;
-        }
-        
-        .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .invoice-title {
-            font-size: 24px;
-            color: var(--primary);
-            font-weight: bold;
-        }
-        
-        .invoice-details {
-            text-align: right;
-        }
-        
-        .invoice-details div {
-            margin-bottom: 5px;
-        }
-        
-        .company-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-        }
-        
-        .seller, .buyer {
-            flex: 1;
-            padding: 20px;
-            border-radius: 5px;
-            background: #f9f9f9;
-            margin: 0 10px;
-        }
-        
-        .seller h3, .buyer h3 {
-            margin-bottom: 15px;
-            color: var(--primary);
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-        }
-        
-        .products-table {
+        table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin: 20px 0;
         }
-        
-        .products-table th {
-            background: var(--primary);
-            color: white;
-            padding: 12px 15px;
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
             text-align: left;
         }
-        
-        .products-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border);
+        th {
+            background-color: #f2f2f2;
         }
-        
-        .products-table tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-        
-        .products-table tr:hover {
-            background: #f0f7ff;
-        }
-        
-        .summary {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 30px;
-        }
-        
-        .summary-table {
-            width: 50%;
-            border-collapse: collapse;
-        }
-        
-        .summary-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .summary-table tr:last-child td {
-            border-bottom: none;
-            font-weight: bold;
-            background: #f0f7ff;
-        }
-        
-        .total-in-words {
-            padding: 15px;
-            background: #f9f9f9;
-            border-radius: 5px;
-            margin-bottom: 30px;
-            font-style: italic;
-        }
-        
-        .signature-section {
+        .info-section {
             display: flex;
             justify-content: space-between;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border);
+            margin-bottom: 20px;
         }
-        
-        .signature {
-            text-align: center;
-            width: 40%;
-        }
-        
-        .signature .signature-line {
-            height: 2px;
-            background: var(--border);
-            margin: 40px 0 10px;
-        }
-        
-        .status-indicator {
-            padding: 10px 15px;
-            border-radius: 5px;
-            display: inline-block;
-            margin-top: 20px;
-            font-weight: bold;
-        }
-        
-        .status-paid {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .status-unpaid {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .instructions {
-            background: #e7f4ff;
-            border-left: 4px solid var(--primary);
+        .info-box {
+            width: 48%;
+            border: 1px solid #ddd;
             padding: 15px;
-            margin: 20px 0;
-            border-radius: 0 5px 5px 0;
+            border-radius: 5px;
         }
-        
         .loading {
-            display: none;
             text-align: center;
-            padding: 30px;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: var(--primary);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        .error-message {
-            color: #dc3545;
-            background: #f8d7da;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
             display: none;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        @media (max-width: 768px) {
-            .company-info {
-                flex-direction: column;
-            }
-            
-            .seller, .buyer {
-                margin: 0 0 20px 0;
-            }
-            
-            .signature-section {
-                flex-direction: column;
-            }
-            
-            .signature {
-                width: 100%;
-                margin-bottom: 30px;
-            }
-            
-            .summary-table {
-                width: 100%;
-            }
-            
-            .invoice-header {
-                flex-direction: column;
-            }
-            
-            .invoice-details {
-                text-align: left;
-                margin-top: 15px;
-            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>TRÌNH HIỂN THỊ HÓA ĐƠN ĐIỆN TỬ</h1>
-            <p>Hệ thống trích xuất và hiển thị hóa đơn điện tử từ file XML</p>
-        </header>
-        
-        <section class="upload-section" id="uploadSection">
-            <div class="upload-box" id="dropZone">
-                <i>📁</i>
-                <h3>Tải lên file ZIP chứa hóa đơn điện tử</h3>
-                <p>File ZIP của bạn phải chứa file XML hóa đơn điện tử theo chuẩn của Tổng cục Thuế</p>
-                
-                <div class="instructions">
-                    <p><strong>Hướng dẫn:</strong> Kéo thả file ZIP vào đây hoặc bấm nút bên dưới để chọn file</p>
-                </div>
-                
-                <input type="file" id="zipFile" class="file-input" accept=".zip">
-                <button class="btn" id="browseBtn">Chọn File ZIP</button>
-            </div>
-            
-            <div class="error-message" id="errorMessage"></div>
-        </section>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Đang xử lý hóa đơn...</p>
-        </div>
-        
-        <section class="invoice-section" id="invoiceSection">
-            <div class="invoice-header">
-                <div class="invoice-title" id="invoiceTitle">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
-                <div class="invoice-details">
-                    <div><strong>Mẫu số:</strong> <span id="invoiceTemplate"></span></div>
-                    <div><strong>Ký hiệu:</strong> <span id="invoiceSymbol"></span></div>
-                    <div><strong>Số:</strong> <span id="invoiceNumber"></span></div>
-                    <div><strong>Ngày lập:</strong> <span id="invoiceDate"></span></div>
-                </div>
-            </div>
-            
-            <div class="company-info">
-                <div class="seller">
-                    <h3>BÊN BÁN</h3>
-                    <div><strong>Tên:</strong> <span id="sellerName"></span></div>
-                    <div><strong>MST:</strong> <span id="sellerTaxCode"></span></div>
-                    <div><strong>Địa chỉ:</strong> <span id="sellerAddress"></span></div>
-                    <div><strong>Điện thoại:</strong> <span id="sellerPhone"></span></div>
-                    <div><strong>Email:</strong> <span id="sellerEmail"></span></div>
-                </div>
-                
-                <div class="buyer">
-                    <h3>BÊN MUA</h3>
-                    <div><strong>Tên:</strong> <span id="buyerName"></span></div>
-                    <div><strong>MST:</strong> <span id="buyerTaxCode"></span></div>
-                    <div><strong>Địa chỉ:</strong> <span id="buyerAddress"></span></div>
-                    <div><strong>Mã khách hàng:</strong> <span id="buyerCode"></span></div>
-                    <div><strong>CCCD/CMND:</strong> <span id="buyerId"></span></div>
-                </div>
-            </div>
-            
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>STT</th>
-                        <th>Mã hàng</th>
-                        <th>Tên hàng hóa, dịch vụ</th>
-                        <th>Đơn vị tính</th>
-                        <th>Số lượng</th>
-                        <th>Đơn giá</th>
-                        <th>Thành tiền</th>
-                        <th>Thuế suất</th>
-                        <th>Tiền thuế</th>
-                    </tr>
-                </thead>
-                <tbody id="productsBody">
-                    <!-- Product rows will be inserted here -->
-                </tbody>
-            </table>
-            
-            <div class="summary">
-                <table class="summary-table">
-                    <tr>
-                        <td>Tổng tiền trước thuế:</td>
-                        <td id="totalBeforeTax" class="amount"></td>
-                    </tr>
-                    <tr>
-                        <td>Tổng tiền thuế GTGT:</td>
-                        <td id="totalTax" class="amount"></td>
-                    </tr>
-                    <tr>
-                        <td><strong>TỔNG TIỀN PHẢI THANH TOÁN:</strong></td>
-                        <td id="totalAmount" class="amount"></td>
-                    </tr>
-                </table>
-            </div>
-            
-            <div class="total-in-words">
-                <strong>Số tiền viết bằng chữ:</strong> <span id="amountInWords"></span>
-            </div>
-            
-            <div class="status-indicator" id="paymentStatus"></div>
-            
-            <div class="signature-section">
-                <div class="signature">
-                    <div><strong>NGƯỜI MUA HÀNG</strong></div>
-                    <div>(Ký, ghi rõ họ tên)</div>
-                    <div class="signature-line"></div>
-                </div>
-                <div class="signature">
-                    <div><strong>NGƯỜI BÁN HÀNG</strong></div>
-                    <div>(Ký, ghi rõ họ tên, đóng dấu)</div>
-                    <div class="signature-line"></div>
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px;">
-                <button class="btn" id="newInvoiceBtn">Hóa đơn mới</button>
-            </div>
-        </section>
+    <h1>Trích xuất hóa đơn điện tử</h1>
+    
+    <div class="upload-area" id="dropZone">
+        <p>Kéo thả file ZIP chứa hóa đơn XML vào đây hoặc</p>
+        <input type="file" id="zipFile" accept=".zip" style="display: none;">
+        <button onclick="document.getElementById('zipFile').click()">Chọn file</button>
     </div>
     
+    <div class="loading" id="loading">Đang xử lý...</div>
+    
+    <div id="invoiceInfo" style="display: none;">
+        <h2>Thông tin hóa đơn</h2>
+        <p><strong>Số hóa đơn:</strong> <span id="invoiceNumber"></span></p>
+        <p><strong>Ngày lập:</strong> <span id="invoiceDate"></span></p>
+        <p><strong>Mẫu số:</strong> <span id="invoiceTemplate"></span></p>
+        
+        <div class="info-section">
+            <div class="info-box">
+                <h3>Bên bán</h3>
+                <p><strong>Tên:</strong> <span id="sellerName"></span></p>
+                <p><strong>MST:</strong> <span id="sellerTaxCode"></span></p>
+                <p><strong>Địa chỉ:</strong> <span id="sellerAddress"></span></p>
+            </div>
+            
+            <div class="info-box">
+                <h3>Bên mua</h3>
+                <p><strong>Tên:</strong> <span id="buyerName"></span></p>
+                <p><strong>MST:</strong> <span id="buyerTaxCode"></span></p>
+                <p><strong>Địa chỉ:</strong> <span id="buyerAddress"></span></p>
+            </div>
+        </div>
+        
+        <h3>Bảng kê hàng hóa/dịch vụ</h3>
+        <table id="productsTable">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Tên hàng hóa</th>
+                    <th>Đơn vị</th>
+                    <th>Số lượng</th>
+                    <th>Đơn giá</th>
+                    <th>Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const browseBtn = document.getElementById('browseBtn');
             const zipFileInput = document.getElementById('zipFile');
             const dropZone = document.getElementById('dropZone');
-            const loading = document.getElementById('loading');
-            const invoiceSection = document.getElementById('invoiceSection');
-            const uploadSection = document.getElementById('uploadSection');
-            const productsBody = document.getElementById('productsBody');
-            const newInvoiceBtn = document.getElementById('newInvoiceBtn');
-            const errorMessage = document.getElementById('errorMessage');
             
-            // Browse button click event
-            browseBtn.addEventListener('click', function() {
-                zipFileInput.click();
-            });
-            
-            // File input change event
+            // Xử lý khi chọn file
             zipFileInput.addEventListener('change', handleFile);
             
-            // Drop zone events
-            dropZone.addEventListener('dragover', function(e) {
+            // Xử lý kéo thả file
+            dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                dropZone.style.backgroundColor = '#e3f2fd';
+                dropZone.style.backgroundColor = '#f0f7ff';
             });
             
-            dropZone.addEventListener('dragleave', function() {
+            dropZone.addEventListener('dragleave', () => {
                 dropZone.style.backgroundColor = '';
             });
             
-            dropZone.addEventListener('drop', function(e) {
+            dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 dropZone.style.backgroundColor = '';
-                
                 if (e.dataTransfer.files.length) {
                     zipFileInput.files = e.dataTransfer.files;
                     handleFile();
                 }
             });
             
-            // New invoice button
-            newInvoiceBtn.addEventListener('click', function() {
-                invoiceSection.style.display = 'none';
-                uploadSection.style.display = 'block';
-                zipFileInput.value = '';
-            });
-            
-            // Format number to VND currency
-            function formatCurrency(amount) {
-                if (!amount) return '0 VND';
-                const num = parseFloat(amount);
-                return new Intl.NumberFormat('vi-VN', { 
-                    style: 'decimal',
-                    maximumFractionDigits: 0 
-                }).format(num) + ' VND';
-            }
-            
-            // Format number with decimals
-            function formatNumber(amount) {
-                if (!amount) return '0';
-                const num = parseFloat(amount);
-                return new Intl.NumberFormat('vi-VN', { 
-                    style: 'decimal',
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                }).format(num);
-            }
-            
-            // Handle file processing
+            // Hàm xử lý file
             async function handleFile() {
-                if (!zipFileInput.files.length) return;
-                
                 const file = zipFileInput.files[0];
-                if (!file.name.endsWith('.zip')) {
-                    showError('Vui lòng chọn file ZIP');
+                if (!file || !file.name.endsWith('.zip')) {
+                    alert('Vui lòng chọn file ZIP');
                     return;
                 }
                 
-                // Reset error message
-                errorMessage.style.display = 'none';
-                
-                // Show loading
-                loading.style.display = 'block';
-                uploadSection.style.display = 'none';
+                document.getElementById('loading').style.display = 'block';
                 
                 try {
-                    const invoiceData = await extractInvoiceFromZip(file);
-                    displayInvoiceData(invoiceData);
-                } catch (error) {
-                    showError('Có lỗi khi xử lý hóa đơn: ' + error.message);
-                } finally {
-                    loading.style.display = 'none';
-                }
-            }
-            
-            // Show error message
-            function showError(message) {
-                errorMessage.textContent = message;
-                errorMessage.style.display = 'block';
-                loading.style.display = 'none';
-                uploadSection.style.display = 'block';
-            }
-            
-            // Extract invoice data from ZIP file
-            async function extractInvoiceFromZip(zipFile) {
-                try {
-                    // 1. Read ZIP file
+                    // Giải nén và đọc file XML
                     const zip = new JSZip();
-                    const zipData = await zip.loadAsync(zipFile);
+                    const zipData = await zip.loadAsync(file);
                     
-                    // 2. Find XML file in ZIP
+                    // Tìm file XML
                     let xmlFile;
                     for (const [filename, file] of Object.entries(zipData.files)) {
                         if (filename.endsWith('.xml')) {
@@ -565,158 +162,109 @@
                         }
                     }
                     
-                    if (!xmlFile) {
-                        throw new Error('Không tìm thấy file XML trong file ZIP');
-                    }
+                    if (!xmlFile) throw new Error('Không tìm thấy file XML trong ZIP');
                     
-                    // 3. Read XML content
                     const xmlContent = await xmlFile.async('text');
-                    
-                    // 4. Parse XML and extract invoice data
                     const invoiceData = parseXmlInvoice(xmlContent);
+                    displayInvoice(invoiceData);
                     
-                    return invoiceData;
                 } catch (error) {
-                    console.error('Error extracting invoice:', error);
-                    throw error;
+                    alert('Lỗi: ' + error.message);
+                } finally {
+                    document.getElementById('loading').style.display = 'none';
                 }
             }
             
-            // Parse XML and extract invoice information
+            // Hàm phân tích XML
             function parseXmlInvoice(xmlContent) {
-                // Convert XML to DOM object
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
                 
-                // Helper function to get text content from XML node
+                // Helper function
                 const getText = (path, parent = xmlDoc) => {
                     const node = parent.querySelector(path);
                     return node ? node.textContent.trim() : '';
                 };
                 
-                // Extract general invoice info
+                // Thông tin chung
                 const invoiceInfo = {
-                    title: getText('HDon > DLHDon > TTChung > THDon'),
-                    template: getText('HDon > DLHDon > TTChung > KHHDon'),
-                    symbol: getText('HDon > DLHDon > TTChung > KHMSHDon'),
                     number: getText('HDon > DLHDon > TTChung > SHDon'),
                     date: getText('HDon > DLHDon > TTChung > NLap'),
-                    totalAmount: getText('HDon > DLHDon > NDHDon > TTKhac > TTin[TTruong="Tổng tiền thanh toán bằng số"] > DLieu'),
-                    amountInWords: getText('HDon > DLHDon > NDHDon > TTKhac > TTin[TTruong="Tổng tiền thanh toán bằng chữ"] > DLieu'),
-                    paymentStatus: getText('HDon > DLHDon > TTChung > TTKhac > TTin[TTruong="Trạng thái thanh toán"] > DLieu')
+                    template: getText('HDon > DLHDon > TTChung > KHHDon')
                 };
                 
-                // Extract seller info
+                // Thông tin người bán
                 const sellerInfo = {
                     name: getText('HDon > DLHDon > NDHDon > NBan > Ten'),
                     taxCode: getText('HDon > DLHDon > NDHDon > NBan > MST'),
-                    address: getText('HDon > DLHDon > NDHDon > NBan > DChi'),
-                    phone: getText('HDon > DLHDon > NDHDon > NBan > SDThoai'),
-                    email: getText('HDon > DLHDon > NDHDon > NBan > DCTDTu')
+                    address: getText('HDon > DLHDon > NDHDon > NBan > DChi')
                 };
                 
-                // Extract buyer info
+                // Thông tin người mua
                 const buyerInfo = {
                     name: getText('HDon > DLHDon > NDHDon > NMua > Ten'),
                     taxCode: getText('HDon > DLHDon > NDHDon > NMua > MST'),
-                    address: getText('HDon > DLHDon > NDHDon > NMua > DChi'),
-                    customerCode: getText('HDon > DLHDon > NDHDon > NMua > MKHang'),
-                    idNumber: getText('HDon > DLHDon > NDHDon > NMua > CCCDan')
+                    address: getText('HDon > DLHDon > NDHDon > NMua > DChi')
                 };
                 
-                // Extract products/services
+                // Danh sách hàng hóa
                 const products = [];
                 const productNodes = xmlDoc.querySelectorAll('HDon > DLHDon > NDHDon > DSHHDVu > HHDVu');
                 
-                productNodes.forEach((node, index) => {
+                productNodes.forEach(node => {
                     products.push({
-                        code: getText('MHHDVu', node),
                         name: getText('THHDVu', node),
                         unit: getText('DVTinh', node),
                         quantity: getText('SLuong', node),
                         price: getText('DGia', node),
-                        amount: getText('ThTien', node),
-                        taxRate: getText('TSuat', node),
-                        tax: getText('TThue', node)
+                        amount: getText('ThTien', node)
                     });
                 });
                 
-                // Extract totals
-                const totals = {
-                    beforeTax: getText('HDon > DLHDon > NDHDon > TToan > TgTCThue'),
-                    tax: getText('HDon > DLHDon > NDHDon > TToan > TgTThue'),
-                    total: invoiceInfo.totalAmount
-                };
-                
-                return {
-                    invoiceInfo,
-                    sellerInfo,
-                    buyerInfo,
-                    products,
-                    totals
-                };
+                return { invoiceInfo, sellerInfo, buyerInfo, products };
             }
             
-            // Display invoice data on the page
-            function displayInvoiceData(data) {
-                // Display general info
-                document.getElementById('invoiceTitle').textContent = data.invoiceInfo.title || 'HÓA ĐƠN GIÁ TRỊ GIA TĂNG';
-                document.getElementById('invoiceTemplate').textContent = data.invoiceInfo.template;
-                document.getElementById('invoiceSymbol').textContent = data.invoiceInfo.symbol;
+            // Hiển thị hóa đơn
+            function displayInvoice(data) {
+                // Thông tin hóa đơn
                 document.getElementById('invoiceNumber').textContent = data.invoiceInfo.number;
                 document.getElementById('invoiceDate').textContent = data.invoiceInfo.date;
+                document.getElementById('invoiceTemplate').textContent = data.invoiceInfo.template;
                 
-                // Display seller info
+                // Thông tin người bán
                 document.getElementById('sellerName').textContent = data.sellerInfo.name;
                 document.getElementById('sellerTaxCode').textContent = data.sellerInfo.taxCode;
                 document.getElementById('sellerAddress').textContent = data.sellerInfo.address;
-                document.getElementById('sellerPhone').textContent = data.sellerInfo.phone;
-                document.getElementById('sellerEmail').textContent = data.sellerInfo.email;
                 
-                // Display buyer info
+                // Thông tin người mua
                 document.getElementById('buyerName').textContent = data.buyerInfo.name;
                 document.getElementById('buyerTaxCode').textContent = data.buyerInfo.taxCode;
                 document.getElementById('buyerAddress').textContent = data.buyerInfo.address;
-                document.getElementById('buyerCode').textContent = data.buyerInfo.customerCode;
-                document.getElementById('buyerId').textContent = data.buyerInfo.idNumber;
                 
-                // Display products
-                let productsHtml = '';
+                // Bảng hàng hóa
+                const tbody = document.querySelector('#productsTable tbody');
+                tbody.innerHTML = '';
+                
                 data.products.forEach((product, index) => {
-                    productsHtml += `
-                        <tr>
-                            <td>${index + 1}</td>
-                            <td>${product.code}</td>
-                            <td>${product.name}</td>
-                            <td>${product.unit}</td>
-                            <td>${product.quantity}</td>
-                            <td>${formatNumber(product.price)}</td>
-                            <td>${formatCurrency(product.amount)}</td>
-                            <td>${product.taxRate}</td>
-                            <td>${formatCurrency(product.tax)}</td>
-                        </tr>
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${product.name}</td>
+                        <td>${product.unit}</td>
+                        <td>${product.quantity}</td>
+                        <td>${formatNumber(product.price)}</td>
+                        <td>${formatNumber(product.amount)}</td>
                     `;
+                    tbody.appendChild(row);
                 });
-                productsBody.innerHTML = productsHtml;
                 
-                // Display totals
-                document.getElementById('totalBeforeTax').textContent = formatCurrency(data.totals.beforeTax);
-                document.getElementById('totalTax').textContent = formatCurrency(data.totals.tax);
-                document.getElementById('totalAmount').textContent = formatCurrency(data.totals.total);
-                document.getElementById('amountInWords').textContent = data.invoiceInfo.amountInWords;
-                
-                // Display payment status
-                const paymentStatus = document.getElementById('paymentStatus');
-                if (data.invoiceInfo.paymentStatus.toLowerCase().includes('đã thanh toán')) {
-                    paymentStatus.textContent = 'Đã thanh toán';
-                    paymentStatus.className = 'status-indicator status-paid';
-                } else {
-                    paymentStatus.textContent = 'Chưa thanh toán';
-                    paymentStatus.className = 'status-indicator status-unpaid';
-                }
-                
-                // Show invoice section
-                invoiceSection.style.display = 'block';
+                document.getElementById('invoiceInfo').style.display = 'block';
+            }
+            
+            // Định dạng số
+            function formatNumber(num) {
+                if (!num) return '0';
+                return parseFloat(num).toLocaleString('vi-VN');
             }
         });
     </script>
