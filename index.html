@@ -2,105 +2,80 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>📄 Xem XML GDT đầy đủ</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <title>Trích xuất XML Hóa Đơn</title>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+    body { font-family: Arial; padding: 20px; background: #f7f7f7; }
+    h2 { margin-top: 30px; }
+    textarea { width: 100%; height: 200px; font-family: monospace; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 8px; font-size: 14px; }
     th { background: #eee; }
-    .header { margin-bottom: 15px; font-size: 15px; }
-    .chiethau { color: #a00; font-style: italic; }
+    .indent { padding-left: calc(var(--level) * 20px); }
   </style>
 </head>
 <body>
 
-<h2>📥 Nhập file ZIP chứa XML hóa đơn GDT (TT78)</h2>
-<input type="file" id="zipInput" accept=".zip">
-<button onclick="handleZip()">📂 Xử lý ZIP</button>
+  <h2>🔍 Tải file XML hóa đơn:</h2>
+  <input type="file" id="xmlFile" accept=".xml">
+  
+  <h2>📄 Nội dung XML gốc:</h2>
+  <textarea id="xmlRaw" readonly></textarea>
 
-<div id="info" class="header"></div>
-<table id="table"></table>
-
-<script>
-function get(node, tag) {
-  return node?.getElementsByTagName(tag)[0]?.textContent?.trim() || "";
-}
-
-async function handleZip() {
-  const file = document.getElementById("zipInput").files[0];
-  if (!file) return alert("Chọn file ZIP!");
-
-  const zip = await JSZip.loadAsync(file);
-  const xmlFile = Object.values(zip.files).find(f => f.name.endsWith(".xml"));
-  if (!xmlFile) return alert("❌ Không tìm thấy file XML!");
-
-  const xmlText = await xmlFile.async("text");
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(xmlText, "text/xml");
-
-  const hdon = xml.getElementsByTagName("HDon")[0];
-  const dlh = hdon?.getElementsByTagName("DLHDon")[0];
-  const chung = dlh?.getElementsByTagName("TTChung")[0];
-  const nd = dlh?.getElementsByTagName("NDHDon")[0];
-  const nban = nd?.getElementsByTagName("NBan")[0];
-  const nmua = nd?.getElementsByTagName("NMua")[0];
-  const dshh = nd?.getElementsByTagName("DSHHDVu")[0];
-  const ttoan = nd?.getElementsByTagName("TToan")[0];
-
-  const info = {
-    soHD: get(chung, "SHDon"),
-    ngay: get(chung, "NLap"),
-    mstNBan: get(nban, "MST"),
-    tenNBan: get(nban, "Ten"),
-    mstNMua: get(nmua, "MST"),
-    tenNMua: get(nmua, "Ten"),
-    tong: get(ttoan, "TgTTTBSo")
-  };
-
-  document.getElementById("info").innerHTML = `
-    🧾 <b>Người mua:</b> ${info.tenNMua} (${info.mstNMua})<br>
-    🏢 <b>Người bán:</b> ${info.tenNBan} (${info.mstNBan})<br>
-    📅 <b>Ngày:</b> ${info.ngay} – <b>Số HĐ:</b> ${info.soHD}<br>
-    💰 <b>Tổng tiền:</b> ${info.tong}
-  `;
-
-  const rows = [...dshh.getElementsByTagName("HHDVu")].map(h => {
-    return {
-      loai: get(h, "TChat") === "2" ? "Chiết khấu" : "Hàng hóa",
-      stt: get(h, "STT"),
-      ten: get(h, "THHDVu"),
-      dvt: get(h, "DVTinh"),
-      sl: get(h, "SLuong"),
-      dg: get(h, "DGia"),
-      thue: get(h, "TThue"),
-      thanhtien: get(h, "ThTien"),
-      tongtt: get(h.getElementsByTagName("TTKhac")[0], "Thành tiền thanh toán của hàng hóa")
-    };
-  });
-
-  const table = document.getElementById("table");
-  table.innerHTML = `
-    <tr>
-      <th>STT</th><th>Loại</th><th>Tên hàng</th><th>SL</th><th>ĐVT</th>
-      <th>Đơn giá</th><th>Thành tiền</th><th>Thuế</th><th>Tổng TT</th>
-    </tr>
-    ${rows.map(r => `
-      <tr class="${r.loai === 'Chiết khấu' ? 'chiethau' : ''}">
-        <td>${r.stt}</td>
-        <td>${r.loai}</td>
-        <td>${r.ten}</td>
-        <td>${r.sl}</td>
-        <td>${r.dvt}</td>
-        <td>${r.dg}</td>
-        <td>${r.thanhtien}</td>
-        <td>${r.thue}</td>
-        <td>${r.tongtt}</td>
+  <h2>📋 Bảng trích xuất chi tiết:</h2>
+  <table id="xmlTable">
+    <thead>
+      <tr>
+        <th>STT</th>
+        <th>Tên thẻ</th>
+        <th>Giá trị</th>
+        <th>Thuộc tính</th>
+        <th>Độ sâu</th>
       </tr>
-    `).join("")}
-  `;
-}
-</script>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    document.getElementById("xmlFile").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const xmlText = event.target.result;
+        document.getElementById("xmlRaw").value = xmlText;
+
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+        const tbody = document.querySelector("#xmlTable tbody");
+        tbody.innerHTML = "";
+
+        let count = 0;
+        function walk(node, depth = 0) {
+          if (node.nodeType === 1) { // element node
+            const tag = node.nodeName;
+            const value = (node.textContent || "").trim();
+            const attrs = Array.from(node.attributes || []).map(attr => `${attr.name}="${attr.value}"`).join(" ");
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${++count}</td>
+              <td style="--level:${depth}" class="indent">${tag}</td>
+              <td>${value}</td>
+              <td>${attrs}</td>
+              <td>${depth}</td>
+            `;
+            tbody.appendChild(row);
+            for (const child of node.children) walk(child, depth + 1);
+          }
+        }
+
+        const root = xmlDoc.documentElement;
+        walk(root);
+      };
+      reader.readAsText(file);
+    });
+  </script>
 
 </body>
 </html>
