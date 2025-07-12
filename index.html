@@ -2,26 +2,29 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Nhập ZIP hóa đơn & Đẩy lên GitHub</title>
+  <title>🧾 Nhập ZIP Hóa đơn GDT</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     input, button { margin: 5px; padding: 8px; }
-    .hoa-don { border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f9f9f9; }
-    .html-link { margin-top: 5px; color: blue; }
-    pre { background: #eee; padding: 10px; }
+    .hoa-don { border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f8f8f8; }
+    .html-link { color: blue; text-decoration: underline; }
+    pre { background: #eee; padding: 10px; font-family: monospace; }
   </style>
 </head>
 <body>
-  <h2>📂 Nhập nhiều file ZIP hóa đơn</h2>
-  <label>🔐 Token GitHub: 
-    <input type="password" id="tokenInput" placeholder="Personal access token" style="width:300px">
+  <h2>📂 Nhập nhiều file ZIP hóa đơn từ hoadondientu.gdt.gov.vn</h2>
+
+  <label>🔐 Token GitHub:
+    <input type="password" id="tokenInput" placeholder="Personal Access Token" style="width:300px">
     <button onclick="saveToken()">💾 Lưu token</button>
   </label><br>
+
   <input type="file" id="zipInput" multiple accept=".zip">
-  <button onclick="handleZIP()">📥 Xử lý File ZIP</button>
+  <button onclick="handleZIP()">📥 Xử lý file ZIP</button>
 
   <div id="output"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
     const repo = "Datkep92/test4";
     const folder = "hoadon";
@@ -41,48 +44,64 @@
 
       for (let file of files) {
         const zip = await JSZip.loadAsync(file);
-        const xmlFile = Object.keys(zip.files).find(f => f.endsWith('.xml'));
-        const htmlFile = Object.keys(zip.files).find(f => f.endsWith('.html'));
+        const xmlName = Object.keys(zip.files).find(f => f.endsWith(".xml"));
+        const htmlName = Object.keys(zip.files).find(f => f.endsWith(".html"));
 
-        if (!xmlFile || !htmlFile) {
-          output.innerHTML += `<div class="hoa-don">❌ Thiếu file .xml hoặc .html trong ${file.name}</div>`;
+        if (!xmlName || !htmlName) {
+          output.innerHTML += `<div class="hoa-don">❌ Thiếu file XML hoặc HTML trong ${file.name}</div>`;
           continue;
         }
 
-        const xmlContent = await zip.files[xmlFile].async("text");
-        const htmlContent = await zip.files[htmlFile].async("text");
+        const xmlText = await zip.files[xmlName].async("text");
+        const htmlText = await zip.files[htmlName].async("text");
 
-        // Parse XML
         const parser = new DOMParser();
-        const xml = parser.parseFromString(xmlContent, "text/xml");
+        const xml = parser.parseFromString(xmlText, "text/xml");
 
-        const mst = xml.querySelector("MST")?.textContent || "Không có";
-        const ten = xml.querySelector("Ten")?.textContent || "Không có";
-        const tong = xml.querySelector("TongTien")?.textContent || "0";
-
-        const rows = [...xml.querySelectorAll("HHDVu")].map(row => {
-          return {
-            ten: row.querySelector("Ten")?.textContent || "",
-            dvt: row.querySelector("DVT")?.textContent || "",
-            sl: row.querySelector("SoLuong")?.textContent || "",
-            dg: row.querySelector("DonGia")?.textContent || "",
-            tt: row.querySelector("ThanhTien")?.textContent || ""
-          };
-        });
+        const { info, hang } = extractXMLData(xml);
 
         // Upload HTML lên GitHub
-        const githubURL = await uploadToGitHub(htmlFile, htmlContent);
+        const githubURL = await uploadToGitHub(htmlName, htmlText);
 
         // Hiển thị
         output.innerHTML += `
           <div class="hoa-don">
-            <strong>${ten}</strong> (MST: ${mst})<br>
-            🧾 Tổng tiền hóa đơn: <b>${tong}</b><br>
-            📄 Link HTML: <a class="html-link" href="${githubURL}" target="_blank">${githubURL}</a>
-            <pre>${rows.map(r => `- ${r.ten} (${r.sl} ${r.dvt} × ${r.dg} = ${r.tt})`).join("\n")}</pre>
+            🧾 <b>${info.buyerName}</b> (MST: ${info.buyerMST})<br>
+            🏢 Bán bởi: ${info.sellerName} (MST: ${info.sellerMST})<br>
+            📅 Ngày: ${info.date} – Số HĐ: ${info.number}<br>
+            💰 Tổng tiền: <b>${info.total}</b><br>
+            🔗 HTML: <a class="html-link" href="${githubURL}" target="_blank">${githubURL}</a>
+            <pre>${hang.map(h => 
+              `- ${h.stt}. ${h.ten} (${h.sl} ${h.dvt}) × ${h.dg} = ${h.tt}`
+            ).join("\n")}</pre>
           </div>
         `;
       }
+    }
+
+    function extractXMLData(xml) {
+      const get = (selector) => xml.querySelector(selector)?.textContent?.trim() || "";
+
+      const info = {
+        sellerName: get("AccountingSupplierParty Name"),
+        sellerMST: get("AccountingSupplierParty CompanyID"),
+        buyerName: get("AccountingCustomerParty Name"),
+        buyerMST: get("AccountingCustomerParty CompanyID"),
+        date: get("IssueDate"),
+        total: get("LegalMonetaryTotal > PayableAmount") || "0",
+        number: get("ID"),
+      };
+
+      const lines = [...xml.querySelectorAll("InvoiceLine")].map(line => ({
+        stt: line.querySelector("ID")?.textContent?.trim() || "",
+        ten: line.querySelector("Item > Name")?.textContent?.trim() || "",
+        dvt: line.querySelector("InvoicedQuantity")?.getAttribute("unitCode") || "",
+        sl: line.querySelector("InvoicedQuantity")?.textContent?.trim() || "",
+        dg: line.querySelector("Price > PriceAmount")?.textContent?.trim() || "",
+        tt: line.querySelector("LineExtensionAmount")?.textContent?.trim() || "",
+      }));
+
+      return { info, hang: lines };
     }
 
     async function uploadToGitHub(fileName, content) {
@@ -96,7 +115,7 @@
       const apiURL = `https://api.github.com/repos/${repo}/contents/${path}`;
       const body = {
         message: `upload ${fileName}`,
-        content: btoa(unescape(encodeURIComponent(content)))  // base64 encode
+        content: btoa(unescape(encodeURIComponent(content))) // base64 encode
       };
 
       const res = await fetch(apiURL, {
@@ -116,8 +135,5 @@
       return `https://${repo.split("/")[0]}.github.io/${repo.split("/")[1]}/${path}`;
     }
   </script>
-
-  <!-- JSZip CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
