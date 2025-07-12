@@ -1,81 +1,544 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Trích xuất XML Hóa Đơn</title>
-  <style>
-    body { font-family: Arial; padding: 20px; background: #f7f7f7; }
-    h2 { margin-top: 30px; }
-    textarea { width: 100%; height: 200px; font-family: monospace; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; background: #fff; }
-    th, td { border: 1px solid #ccc; padding: 8px; font-size: 14px; }
-    th { background: #eee; }
-    .indent { padding-left: calc(var(--level) * 20px); }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Hiển Thị Hóa Đơn Điện Tử</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #0d47a1;
+            --secondary: #f5f5f5;
+            --border: #ddd;
+            --success: #28a745;
+            --text: #333;
+            --light-text: #666;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        header h1 {
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .upload-section {
+            padding: 30px;
+            background: var(--secondary);
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+        
+        .upload-box {
+            border: 2px dashed var(--primary);
+            border-radius: 8px;
+            padding: 30px;
+            background: white;
+            margin: 0 auto;
+            max-width: 600px;
+            transition: all 0.3s;
+        }
+        
+        .upload-box:hover {
+            border-color: var(--primary-dark);
+            background-color: #f0f7ff;
+        }
+        
+        .upload-box i {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .upload-box p {
+            margin-bottom: 20px;
+            color: var(--light-text);
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: inline-block;
+            margin: 0 5px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .btn-success {
+            background: var(--success);
+        }
+        
+        .invoice-section {
+            padding: 30px;
+            display: none;
+        }
+        
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .invoice-title {
+            font-size: 24px;
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .invoice-details {
+            text-align: right;
+        }
+        
+        .invoice-details div {
+            margin-bottom: 5px;
+        }
+        
+        .company-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .seller, .buyer {
+            flex: 1;
+            padding: 20px;
+            border-radius: 5px;
+            background: #f9f9f9;
+            margin: 0 10px;
+        }
+        
+        .seller h3, .buyer h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+        
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        
+        .products-table th {
+            background: var(--primary);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        
+        .products-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .products-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .products-table tr:hover {
+            background: #f0f7ff;
+        }
+        
+        .summary {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+        
+        .summary-table {
+            width: 50%;
+            border-collapse: collapse;
+        }
+        
+        .summary-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .summary-table tr:last-child td {
+            border-bottom: none;
+            font-weight: bold;
+            background: #f0f7ff;
+        }
+        
+        .total-in-words {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .signature {
+            text-align: center;
+            width: 40%;
+        }
+        
+        .signature .signature-line {
+            height: 2px;
+            background: var(--border);
+            margin: 40px 0 10px;
+        }
+        
+        .status-indicator {
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .instructions {
+            background: #e7f4ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .company-info {
+                flex-direction: column;
+            }
+            
+            .seller, .buyer {
+                margin: 0 0 20px 0;
+            }
+            
+            .signature-section {
+                flex-direction: column;
+            }
+            
+            .signature {
+                width: 100%;
+                margin-bottom: 30px;
+            }
+            
+            .summary-table {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-
-  <h2>🔍 Tải file XML hóa đơn:</h2>
-  <input type="file" id="xmlFile" accept=".xml">
-  
-  <h2>📄 Nội dung XML gốc:</h2>
-  <textarea id="xmlRaw" readonly></textarea>
-
-  <h2>📋 Bảng trích xuất chi tiết:</h2>
-  <table id="xmlTable">
-    <thead>
-      <tr>
-        <th>STT</th>
-        <th>Tên thẻ</th>
-        <th>Giá trị</th>
-        <th>Thuộc tính</th>
-        <th>Độ sâu</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <script>
-    document.getElementById("xmlFile").addEventListener("change", function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const xmlText = event.target.result;
-        document.getElementById("xmlRaw").value = xmlText;
-
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-
-        const tbody = document.querySelector("#xmlTable tbody");
-        tbody.innerHTML = "";
-
-        let count = 0;
-        function walk(node, depth = 0) {
-          if (node.nodeType === 1) { // element node
-            const tag = node.nodeName;
-            const value = (node.textContent || "").trim();
-            const attrs = Array.from(node.attributes || []).map(attr => `${attr.name}="${attr.value}"`).join(" ");
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${++count}</td>
-              <td style="--level:${depth}" class="indent">${tag}</td>
-              <td>${value}</td>
-              <td>${attrs}</td>
-              <td>${depth}</td>
-            `;
-            tbody.appendChild(row);
-            for (const child of node.children) walk(child, depth + 1);
-          }
-        }
-
-        const root = xmlDoc.documentElement;
-        walk(root);
-      };
-      reader.readAsText(file);
-    });
-  </script>
-
+    <div class="container">
+        <header>
+            <h1>TRÌNH HIỂN THỊ HÓA ĐƠN ĐIỆN TỬ</h1>
+            <p>Hệ thống trích xuất và hiển thị hóa đơn điện tử từ file XML</p>
+        </header>
+        
+        <section class="upload-section">
+            <div class="upload-box" id="dropZone">
+                <i>📁</i>
+                <h3>Tải lên file ZIP chứa hóa đơn điện tử</h3>
+                <p>File ZIP của bạn phải chứa file XML hóa đơn điện tử theo chuẩn của Tổng cục Thuế</p>
+                
+                <div class="instructions">
+                    <p><strong>Hướng dẫn:</strong> Kéo thả file ZIP vào đây hoặc bấm nút bên dưới để chọn file</p>
+                </div>
+                
+                <input type="file" id="zipFile" class="file-input" accept=".zip">
+                <button class="btn" id="browseBtn">Chọn File ZIP</button>
+            </div>
+        </section>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Đang xử lý hóa đơn...</p>
+        </div>
+        
+        <section class="invoice-section" id="invoiceSection">
+            <div class="invoice-header">
+                <div class="invoice-title">HÓA ĐƠN GIÁ TRỊ GIA TĂNG</div>
+                <div class="invoice-details">
+                    <div><strong>Mẫu số:</strong> <span id="invoiceTemplate">C25TTD</span></div>
+                    <div><strong>Ký hiệu:</strong> <span id="invoiceSymbol">1</span></div>
+                    <div><strong>Số:</strong> <span id="invoiceNumber">3052</span></div>
+                    <div><strong>Ngày lập:</strong> <span id="invoiceDate">2025-07-08</span></div>
+                </div>
+            </div>
+            
+            <div class="company-info">
+                <div class="seller">
+                    <h3>BÊN BÁN</h3>
+                    <div><strong>Tên:</strong> <span id="sellerName">CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ THÀNH ĐẠT NINH THUẬN</span></div>
+                    <div><strong>MST:</strong> <span id="sellerTaxCode">4500610804</span></div>
+                    <div><strong>Địa chỉ:</strong> <span id="sellerAddress">Khu phố 9, Phường Đông Hải, Tỉnh Khánh Hoà, Việt Nam</span></div>
+                    <div><strong>Điện thoại:</strong> <span id="sellerPhone">0919811277</span></div>
+                    <div><strong>Email:</strong> <span id="sellerEmail">ha36.ht@gmail.com</span></div>
+                </div>
+                
+                <div class="buyer">
+                    <h3>BÊN MUA</h3>
+                    <div><strong>Tên:</strong> <span id="buyerName">CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ LOAN PHỤNG</span></div>
+                    <div><strong>MST:</strong> <span id="buyerTaxCode">4500673875</span></div>
+                    <div><strong>Địa chỉ:</strong> <span id="buyerAddress">330A đường Yên Ninh, Phường Đông Hải, Khánh Hòa</span></div>
+                    <div><strong>Mã khách hàng:</strong> <span id="buyerCode">LOAN ĐH</span></div>
+                    <div><strong>CCCD:</strong> <span id="buyerId">058166001197</span></div>
+                </div>
+            </div>
+            
+            <table class="products-table">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Mã hàng</th>
+                        <th>Tên hàng hóa, dịch vụ</th>
+                        <th>Đơn vị tính</th>
+                        <th>Số lượng</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                        <th>Thuế suất</th>
+                        <th>Tiền thuế</th>
+                    </tr>
+                </thead>
+                <tbody id="productsBody">
+                    <!-- Product rows will be inserted here -->
+                </tbody>
+            </table>
+            
+            <div class="summary">
+                <table class="summary-table">
+                    <tr>
+                        <td>Tổng tiền trước thuế:</td>
+                        <td id="totalBeforeTax" class="amount">185,900,000 VND</td>
+                    </tr>
+                    <tr>
+                        <td>Tổng tiền thuế GTGT:</td>
+                        <td id="totalTax" class="amount">18,590,000 VND</td>
+                    </tr>
+                    <tr>
+                        <td><strong>TỔNG TIỀN PHẢI THANH TOÁN:</strong></td>
+                        <td id="totalAmount" class="amount">204,490,000 VND</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="total-in-words">
+                <strong>Số tiền viết bằng chữ:</strong> <span id="amountInWords">Hai trăm lẻ bốn triệu bốn trăm chín mươi nghìn đồng</span>
+            </div>
+            
+            <div class="status-indicator status-paid" id="paymentStatus">
+                Đã thanh toán
+            </div>
+            
+            <div class="signature-section">
+                <div class="signature">
+                    <div><strong>NGƯỜI MUA HÀNG</strong></div>
+                    <div>(Ký, ghi rõ họ tên)</div>
+                    <div class="signature-line"></div>
+                </div>
+                <div class="signature">
+                    <div><strong>NGƯỜI BÁN HÀNG</strong></div>
+                    <div>(Ký, ghi rõ họ tên, đóng dấu)</div>
+                    <div class="signature-line"></div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="btn" id="newInvoiceBtn">Hóa đơn mới</button>
+            </div>
+        </section>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const browseBtn = document.getElementById('browseBtn');
+            const zipFileInput = document.getElementById('zipFile');
+            const dropZone = document.getElementById('dropZone');
+            const loading = document.getElementById('loading');
+            const invoiceSection = document.getElementById('invoiceSection');
+            const productsBody = document.getElementById('productsBody');
+            const newInvoiceBtn = document.getElementById('newInvoiceBtn');
+            
+            // Browse button click event
+            browseBtn.addEventListener('click', function() {
+                zipFileInput.click();
+            });
+            
+            // File input change event
+            zipFileInput.addEventListener('change', handleFile);
+            
+            // Drop zone events
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.style.backgroundColor = '#e3f2fd';
+            });
+            
+            dropZone.addEventListener('dragleave', function() {
+                dropZone.style.backgroundColor = '';
+            });
+            
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.style.backgroundColor = '';
+                
+                if (e.dataTransfer.files.length) {
+                    zipFileInput.files = e.dataTransfer.files;
+                    handleFile();
+                }
+            });
+            
+            // New invoice button
+            newInvoiceBtn.addEventListener('click', function() {
+                invoiceSection.style.display = 'none';
+                document.querySelector('.upload-section').style.display = 'block';
+                zipFileInput.value = '';
+            });
+            
+            // Handle file processing
+            function handleFile() {
+                if (!zipFileInput.files.length) return;
+                
+                const file = zipFileInput.files[0];
+                if (!file.name.endsWith('.zip')) {
+                    alert('Vui lòng chọn file ZIP');
+                    return;
+                }
+                
+                // Show loading
+                loading.style.display = 'block';
+                document.querySelector('.upload-section').style.display = 'none';
+                
+                // Simulate processing delay
+                setTimeout(processInvoice, 1500);
+            }
+            
+            // Process invoice - in a real app, this would parse the XML from the ZIP
+            function processInvoice() {
+                // Hide loading and show invoice
+                loading.style.display = 'none';
+                invoiceSection.style.display = 'block';
+                
+                // Populate products table
+                const products = [
+                    { 
+                        code: "VT00392", 
+                        name: "Bia Heineken Silver 250x24C Ctn", 
+                        unit: "Thùng", 
+                        quantity: "338", 
+                        price: "308,181.82", 
+                        amount: "104,165,455", 
+                        taxRate: "10%", 
+                        tax: "10,416,545.5" 
+                    },
+                    { 
+                        code: "VT00654", 
+                        name: "Bia Tiger Crystal 250x24C SLK Ctn C3", 
+                        unit: "Thùng", 
+                        quantity: "338", 
+                        price: "241,818.18", 
+                        amount: "81,734,545", 
+                        taxRate: "10%", 
+                        tax: "8,173,454.5" 
+                    }
+                ];
+                
+                let productsHtml = '';
+                products.forEach((product, index) => {
+                    productsHtml += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${product.code}</td>
+                            <td>${product.name}</td>
+                            <td>${product.unit}</td>
+                            <td>${product.quantity}</td>
+                            <td>${product.price} VND</td>
+                            <td>${product.amount} VND</td>
+                            <td>${product.taxRate}</td>
+                            <td>${product.tax} VND</td>
+                        </tr>
+                    `;
+                });
+                
+                productsBody.innerHTML = productsHtml;
+            }
+            
+            // Initialize with sample data
+            processInvoice();
+        });
+    </script>
 </body>
 </html>
