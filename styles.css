@@ -1,0 +1,659 @@
+/* === RESET === */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+html, body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #f5f5f5;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* === HEADER === */
+.header {
+  background: #e74c3c;
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-title { font-size: 20px; }
+.current-time { font-size: 14px; }
+
+/* === MAIN CONTROLS === */
+.main-controls {
+  display: flex;
+  gap: 10px;
+  background: #34495e;
+  padding: 8px 12px;
+  overflow-x: auto;
+  align-items: center;
+}
+
+.main-controls button {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.main-controls button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.table-control-btn { margin-right: 5px; }
+
+/* === TABLES GRID === */
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 12px;
+  overflow-y: auto;
+  height: calc(100vh - 120px);
+}
+
+.table-card {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border-left: 4px solid #ccc;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.table-card.free { border-left-color: #2ecc71; }
+.table-card.occupied { border-left-color: #e67e22; }
+.table-card.paid { border-left-color: #3498db; }
+
+.status-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #ccc;
+  color: white;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-bottom-left-radius: 8px;
+}
+
+.free .status-badge { background: #2ecc71; }
+.occupied .status-badge { background: #e67e22; }
+.paid .status-badge { background: #3498db; }
+
+/* === POPUP === */
+.popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 10px;
+}
+
+.popup-content-large {
+  width: 100%;
+  max-width: 900px;
+  height: 90vh;
+  background: white;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.category-tabs-container {
+  flex-shrink: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #eee;
+  padding: 0 10px;
+  overflow-x: auto;
+}
+
+.category-tabs input[type="button"] {
+  height: 100%;
+  padding: 0 15px;
+  border: none;
+  background: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.category-tabs input.active {
+  border-bottom-color: #e74c3c;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+.add-item-btn, .setting-btn {
+  background: none;
+  border: none;
+  padding: 0 10px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #2ecc71;
+}
+
+.menu-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-grid {
+  flex-grow: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.menu-item {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  transition: 0.2s;
+  position: relative;
+}
+
+.menu-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.menu-item-img i {
+  font-size: 28px;
+  color: #777;
+  margin-bottom: 8px;
+}
+
+.menu-item-name {
+  font-size: 14px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.menu-item-price {
+  font-size: 13px;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+.edit-item-btn, .delete-item-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: none;
+}
+
+.edit-item-btn { right: 30px; background: #f39c12; color: white; }
+.delete-item-btn { background: #e74c3c; color: white; }
+
+.menu-item:hover .edit-item-btn,
+.menu-item:hover .delete-item-btn {
+  display: block;
+}
+
+/* === BILL === */
+.bill-container {
+  display: flex;
+  height: 40vh;
+  border-top: 1px solid #eee;
+}
+
+.bill-items-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.bill-items { flex-grow: 1; overflow-y: auto; }
+
+.bill-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.bill-item-name { flex: 1; }
+.bill-item-details { display: flex; gap: 5px; }
+.bill-item-qty, .bill-item-price { font-size: 12px; color: #555; }
+
+.decrease-btn, .delete-btn {
+  font-size: 10px;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.decrease-btn { background: #3498db; color: white; }
+.delete-btn { background: #e74c3c; color: white; }
+
+.bill-summary {
+  padding-top: 12px;
+  border-top: 1px solid #ddd;
+  text-align: right;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.bill-actions-container {
+  width: 140px;
+  border-left: 1px solid #eee;
+  background: #f8f8f8;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  gap: 10px;
+}
+
+.bill-action-btn {
+  padding: 10px;
+  font-size: 13px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.primary-btn { background: #2ecc71; color: white; }
+.secondary-btn { background: #3498db; color: white; }
+.tertiary-btn { background: #f39c12; color: white; }
+
+.bill-action-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .popup-content-large { height: 95vh; }
+  .menu-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .bill-container { height: 45vh; }
+  .bill-actions-container { width: 120px; padding: 10px; gap: 8px; }
+  .bill-action-btn { padding: 8px; font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .tables-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .menu-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .bill-item { flex-direction: column; align-items: flex-start; }
+  .bill-item-details { flex-direction: row; gap: 5px; margin-top: 5px; }
+  .bill-actions-container { width: 100px; padding: 8px; }
+}
+.setting-btn.editing {
+  color: #e74c3c !important;
+  font-weight: bold;
+}
+
+/* Sửa style cho các nút edit trong menu */
+.edit-item-btn, .delete-item-btn {
+  display: block !important; /* Luôn hiển thị khi ở chế độ edit */
+  opacity: 0.8;
+  transition: all 0.2s;
+}
+
+.edit-item-btn:hover, .delete-item-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* === POPUP STYLES === */
+.popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* Tăng z-index để đè lên các popup khác */
+  padding: 10px;
+}
+
+.popup-content {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+.popup-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #777;
+}
+
+.popup-form-group {
+  margin-bottom: 15px;
+}
+
+.popup-form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #555;
+}
+
+.popup-form-group input,
+.popup-form-group select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.popup-btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.popup-btn-primary {
+  background: #2ecc71;
+  color: white;
+}
+
+.popup-btn-secondary {
+  background: #3498db;
+  color: white;
+}
+
+.popup-btn-cancel {
+  background: #e74c3c;
+  color: white;
+}
+
+/* === IMAGE UPLOAD STYLES === */
+.image-upload-container {
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.image-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px dashed #ddd;
+  margin-bottom: 10px;
+  display: none;
+}
+
+.upload-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.upload-btn:hover {
+  background: #2980b9;
+}
+
+.remove-image-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 5px;
+  display: none;
+}
+
+.camera-icon {
+  font-size: 20px;
+}
+
+.menu-item-img {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #f5f5f5;
+}
+
+.menu-item-img i {
+  font-size: 28px;
+  color: #777;
+}
+
+.menu-item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Thêm vào cuối file */
+.popup-content {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e74c3c;
+}
+
+.popup-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #777;
+  transition: all 0.2s;
+}
+
+.popup-close:hover {
+  color: #e74c3c;
+  transform: scale(1.1);
+}
+
+/* Cải thiện hiển thị ảnh preview */
+.image-preview {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px dashed #ddd;
+  margin: 0 auto 10px;
+  display: none;
+  background-color: #f9f9f9;
+}
+
+.popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 10px;
+}
+
+.popup-content-large {
+  width: 100%;
+  max-width: 900px;
+  height: 90vh;
+  background: white;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+//
+
+.menu-grid {
+  flex-grow: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 15px;
+  overflow-y: auto;
+  /* Giới hạn chỉ hiển thị 2 hàng */
+  grid-auto-rows: min-content;
+  max-height: calc(2 * (120px + 12px)); /* 2 hàng x (chiều cao item + khoảng cách) */
+}
+
+.popup-content-large {
+  width: 100%;
+  max-width: 900px;
+  height: 80vh; /* Giảm chiều cao tổng */
+  background: white;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.menu-container {
+  flex: 0.6; /* Giảm không gian cho menu */
+  display: flex;
+  flex-direction: column;
+}
+
+.bill-container {
+  flex: 0.4; /* Tăng không gian cho hóa đơn */
+  height: auto; /* Bỏ height cố định */
+  border-top: 1px solid #eee;
+}
+
+.menu-item {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  transition: 0.2s;
+  position: relative;
+  height: 120px; /* Cố định chiều cao */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .popup-content-large {
+    height: 90vh;
+  }
+  
+  .menu-container {
+    flex: 0.5;
+  }
+  
+  .bill-container {
+    flex: 0.5;
+  }
+  
+  .menu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    max-height: calc(2 * (100px + 12px));
+  }
+  
+  .menu-item {
+    height: 100px;
+  }
+}
+
