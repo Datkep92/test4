@@ -1,25 +1,44 @@
-function renderHoadon(){
-  const container = document.getElementById('hoadon');
+// =======================
+// Hiển thị danh sách Hóa đơn
+// =======================
+function renderInvoices(taxCode){
+  ensureHkdData(taxCode);
+  const container = document.getElementById('hoadonTableBody');
+  if(!container) return;
   container.innerHTML = '';
-  for(const tax in hkdData){
-    const comp = hkdData[tax];
-    const table = document.createElement('table');
-    table.className = 'table table-bordered table-sm';
-    const header = document.createElement('tr');
-    header.innerHTML = '<th>STT</th><th>Mã HĐ</th><th>Ngày</th><th>Người mua</th><th>Trạng thái</th><th>Tổng tiền</th>';
-    table.appendChild(header);
-    comp.invoices.forEach((inv,i)=>{
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${i+1}</td>
-      <td>${inv.invoiceInfo.symbol}_${inv.invoiceInfo.number}</td>
+  const invoices = hkdData[taxCode].invoices;
+  invoices.forEach(inv => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${inv.invoiceInfo.symbol}</td>
+      <td>${inv.invoiceInfo.number}</td>
       <td>${inv.invoiceInfo.date}</td>
+      <td>${inv.sellerInfo.name}</td>
       <td>${inv.buyerInfo.name}</td>
+      <td>${inv.totals.beforeTax.toFixed(2)}</td>
+      <td>${inv.totals.tax.toFixed(2)}</td>
+      <td>${inv.totals.total.toFixed(2)}</td>
       <td>${inv.status.validation}</td>
-      <td>${inv.totals.total.toLocaleString()}</td>`;
-      table.appendChild(row);
-    });
-    const title = document.createElement('h5'); title.textContent = `Công ty: ${tax}`;
-    container.appendChild(title);
-    container.appendChild(table);
-  }
+      <td>${inv.extractedAt}</td>
+    `;
+    container.appendChild(tr);
+  });
 }
+
+// =======================
+// Render danh sách tất cả công ty
+// =======================
+function renderCompanyList(){
+  const container = document.getElementById('companyList');
+  if(!container) return;
+  container.innerHTML='';
+  Object.keys(hkdData).forEach(tax=>{
+    const btn = document.createElement('button');
+    btn.textContent=tax;
+    btn.onclick = ()=>renderInvoices(tax);
+    container.appendChild(btn);
+  });
+}
+
+window.renderInvoices = renderInvoices;
+window.renderCompanyList = renderCompanyList;
