@@ -2,99 +2,88 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Hệ thống Hóa đơn & Kho</title>
+<title>Hệ thống Quản lý HĐ và Kho</title>
 <style>
   body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-  #sidebar { width: 200px; float: left; background: #f0f0f0; height: 100vh; padding: 10px; box-sizing: border-box;}
-  #main { margin-left: 210px; padding: 10px; }
-  button { margin: 2px; padding: 5px 10px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 10px;}
+  #header { background: #007BFF; color: white; padding: 10px; text-align: center; }
+  #container { display: flex; height: calc(100vh - 50px); }
+  #sidebar { width: 200px; background: #f0f0f0; padding: 10px; overflow-y: auto; }
+  #main { flex: 1; padding: 10px; overflow-y: auto; }
+  button.tab { display: block; width: 100%; margin-bottom: 5px; padding: 10px; cursor: pointer; }
+  .tab-content { display: none; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   table, th, td { border: 1px solid #ccc; }
-  th, td { padding: 5px; text-align: center; }
-  #log { height: 100px; overflow-y: auto; border:1px solid #ccc; padding:5px; margin-top:10px; background:#fafafa; font-size:12px; }
-  .tab { display:none; }
-  .tab.active { display:block; }
+  th, td { padding: 5px; text-align: left; }
+  #logOutput { background: #111; color: #0f0; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; margin-top: 10px; }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
-  <h3>Danh sách công ty</h3>
-  <div id="companyList"></div>
-  <hr>
-  <input type="file" id="zipFiles" multiple accept=".zip">
-  <p><small>Upload ZIP hóa đơn</small></p>
-  <hr>
-  <button onclick="showTab('hoadon')">Hóa đơn</button>
-  <button onclick="showTab('tonkho')">Tồn kho</button>
-  <button onclick="showTab('xuathang')">Xuất hàng</button>
-  <button onclick="showTab('ketoan')">Kế toán</button>
+<div id="header">
+  <h2>Hệ thống Quản lý HĐ và Kho</h2>
+  <input type="file" id="zipInput" multiple accept=".zip">
 </div>
 
-<div id="main">
-  <h2>Hệ thống Hóa đơn & Kho</h2>
-
-  <div id="log"></div>
-
-  <!-- Tab Hóa đơn -->
-  <div id="hoadon" class="tab">
-    <h3>Danh sách Hóa đơn</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Ký hiệu</th><th>Số HĐ</th><th>Ngày</th>
-          <th>Người bán</th><th>Người mua</th>
-          <th>Trước thuế</th><th>Thuế</th><th>Tổng</th>
-          <th>Trạng thái</th><th>Ngày trích xuất</th>
-        </tr>
-      </thead>
-      <tbody id="hoadonTableBody"></tbody>
-    </table>
+<div id="container">
+  <div id="sidebar">
+    <h3>Danh sách công ty</h3>
+    <div id="companyList"></div>
+    <button class="tab" data-tab="hoadon">Hoá đơn</button>
+    <button class="tab" data-tab="tonkho">Kho</button>
+    <button class="tab" data-tab="xuathang">Xuất hàng</button>
+    <button class="tab" data-tab="ketoan">Kế toán</button>
   </div>
-
-  <!-- Tab Tồn kho -->
-  <div id="tonkho" class="tab">
-    <h3>Chi tiết tồn kho</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>MSP</th><th>Tên SP</th><th>ĐVT</th>
-          <th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
-        </tr>
-      </thead>
-      <tbody id="tonkhoTableBody"></tbody>
-    </table>
-  </div>
-
-  <!-- Tab Xuất hàng -->
-  <div id="xuathang" class="tab">
-    <h3>Xuất hàng</h3>
-    <p>Chọn công ty và MSP để xuất hàng</p>
-    <select id="selectCompanyExport"></select>
-    <input type="text" id="exportMsp" placeholder="MSP">
-    <input type="number" id="exportQty" placeholder="Số lượng">
-    <button onclick="doExport()">Xuất</button>
-  </div>
-
-  <!-- Tab Kế toán -->
-  <div id="ketoan" class="tab">
-    <h3>Bảng Kế toán</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Hóa đơn</th><th>Ngày</th>
-          <th>Trước thuế</th><th>Chiết khấu</th><th>Thuế</th><th>Tổng</th>
-        </tr>
-      </thead>
-      <tbody id="accountingTableBody"></tbody>
-    </table>
+  <div id="main">
+    <div id="hoadon" class="tab-content">
+      <h3>Hoá đơn</h3>
+      <table id="invoiceTable">
+        <thead>
+          <tr>
+            <th>STT</th><th>MST</th><th>HĐ</th><th>Ngày</th><th>Trạng thái</th><th>Tổng tiền</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="tonkho" class="tab-content">
+      <h3>Tồn kho</h3>
+      <table id="stockTable">
+        <thead>
+          <tr>
+            <th>MSP</th><th>Tên hàng</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="xuathang" class="tab-content">
+      <h3>Xuất hàng</h3>
+      <table id="exportTable">
+        <thead>
+          <tr>
+            <th>MSP</th><th>Tên hàng</th><th>Số lượng xuất</th><th>Đơn giá</th><th>Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="ketoan" class="tab-content">
+      <h3>Kế toán</h3>
+      <table id="accountTable">
+        <thead>
+          <tr>
+            <th>Loại</th><th>MST</th><th>Số tiền</th><th>Ngày</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="logOutput"></div>
   </div>
 </div>
 
-<!-- Thư viện JSZip -->
+<!-- Thư viện JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-<!-- Các file JS -->
 <script src="zip-trichxuat.js"></script>
 <script src="hoadon.js"></script>
 <script src="tonkho.js"></script>
@@ -102,70 +91,84 @@
 <script src="ketoan.js"></script>
 
 <script>
-  // ==========================
-  // Hàm log lên UI
-  // ==========================
-  window.logAction = function(msg){
-    const log = document.getElementById('log');
-    if(log){
-      const p = document.createElement('div');
-      p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      log.appendChild(p);
-      log.scrollTop = log.scrollHeight;
-    }
-    console.log(msg);
-  }
+// =======================
+// UI Log
+// =======================
+window.logAction = function(msg){
+  const log = document.getElementById('logOutput');
+  const time = new Date().toLocaleTimeString();
+  log.innerHTML += `[${time}] ${msg}<br>`;
+  log.scrollTop = log.scrollHeight;
+};
 
-  // ==========================
-  // Upload ZIP tự xử lý
-  // ==========================
-  document.getElementById('zipFiles').addEventListener('change', async (e)=>{
-    const files = e.target.files;
-    if(files.length>0){
-      logAction('Đang xử lý ZIP...');
-      await handleZipFiles(files);
-      renderCompanyList();
-      renderAllStock();
-      logAction('Hoàn tất xử lý ZIP');
-    }
+// =======================
+// Tabs
+// =======================
+const tabs = document.querySelectorAll('button.tab');
+const contents = document.querySelectorAll('.tab-content');
+tabs.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    contents.forEach(c=>c.style.display='none');
+    document.getElementById(btn.dataset.tab).style.display='block';
+    renderTables(); // Render dữ liệu mỗi khi đổi tab
+  });
+});
+
+// =======================
+// Nhập ZIP
+// =======================
+document.getElementById('zipInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files);
+  if(files.length>0){
+    logAction('Đang xử lý ZIP...');
+    await handleZipFiles(files);
+    updateCompanyList();
+    renderTables();
+  }
+});
+
+// =======================
+// Danh sách công ty
+// =======================
+function updateCompanyList(){
+  const listDiv = document.getElementById('companyList');
+  listDiv.innerHTML = '';
+  Object.keys(hkdData).forEach(mst=>{
+    const div = document.createElement('div');
+    div.textContent = mst;
+    listDiv.appendChild(div);
+  });
+}
+
+// =======================
+// Render các bảng
+// =======================
+function renderTables(){
+  // Hoá đơn
+  const invoiceTbody = document.querySelector('#invoiceTable tbody');
+  invoiceTbody.innerHTML='';
+  Object.keys(hkdData).forEach(mst=>{
+    hkdData[mst].invoices.forEach((inv,idx)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${idx+1}</td><td>${mst}</td><td>${inv.uniqueKey}</td><td>${inv.invoiceInfo.date}</td><td>${inv.status.validation}</td><td>${inv.totals.total.toLocaleString()}</td>`;
+      invoiceTbody.appendChild(tr);
+    });
   });
 
-  // ==========================
-  // Hiển thị tab
-  // ==========================
-  function showTab(tabId){
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    const tab = document.getElementById(tabId);
-    if(tab) tab.classList.add('active');
-  }
-  showTab('hoadon'); // mặc định hiển thị Hóa đơn
-
-  // ==========================
-  // Xuất hàng
-  // ==========================
-  function doExport(){
-    const taxCode = document.getElementById('selectCompanyExport').value;
-    const msp = document.getElementById('exportMsp').value.trim();
-    const qty = parseFloat(document.getElementById('exportQty').value);
-    if(!taxCode||!msp||isNaN(qty)||qty<=0){ logAction('Vui lòng nhập đầy đủ thông tin xuất'); return; }
-    exportStock(taxCode,msp,qty);
-  }
-
-  // ==========================
-  // Render select công ty cho xuất hàng
-  // ==========================
-  function renderCompanySelect(){
-    const sel = document.getElementById('selectCompanyExport');
-    if(!sel) return;
-    sel.innerHTML='';
-    Object.keys(hkdData).forEach(tax=>{
-      const opt=document.createElement('option');
-      opt.value=tax; opt.textContent=tax;
-      sel.appendChild(opt);
+  // Tồn kho
+  const stockTbody = document.querySelector('#stockTable tbody');
+  stockTbody.innerHTML='';
+  Object.keys(hkdData).forEach(mst=>{
+    hkdData[mst].tonkhoMain.forEach(item=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${item.msp}</td><td>${item.name}</td><td>${item.unit}</td><td>${item.quantity}</td><td>${item.price.toLocaleString()}</td><td>${item.amount.toLocaleString()}</td>`;
+      stockTbody.appendChild(tr);
     });
-  }
+  });
 
-  setInterval(renderCompanySelect,1000); // cập nhật tự động khi có công ty mới
+  // Xuất hàng và Kế toán có thể render tương tự khi logic riêng được tích hợp
+}
 </script>
+
 </body>
 </html>
