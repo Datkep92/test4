@@ -2,135 +2,79 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quản lý Hoá đơn & Kho</title>
+<title>HKD Invoice Management</title>
 <style>
-body { font-family: Arial, sans-serif; margin:0; padding:0; display:flex; height:100vh; }
-#sidebar { width:200px; background:#f0f0f0; padding:10px; overflow-y:auto; border-right:1px solid #ccc; }
-#main { flex:1; padding:10px; display:flex; flex-direction:column; }
-#tabs { display:flex; margin-bottom:10px; }
-.tab { padding:10px 15px; cursor:pointer; border:1px solid #ccc; border-bottom:none; background:#eee; margin-right:5px; }
-.tab.active { background:#fff; font-weight:bold; }
-.tab-content { flex:1; border:1px solid #ccc; padding:10px; overflow:auto; }
-#logDiv { height:150px; overflow:auto; border:1px solid #ccc; padding:5px; margin-top:10px; background:#fafafa; font-size:12px; }
+body{font-family:Arial;margin:0;padding:0;}
+header{background:#0078D7;color:white;padding:10px;font-size:20px;}
+nav{display:flex;background:#f0f0f0;}
+nav button{flex:1;padding:10px;border:none;background:#f0f0f0;cursor:pointer;}
+nav button.active{background:#0078D7;color:white;}
+section.tab-content{display:none;padding:10px;}
+section.tab-content.active{display:block;}
+table{border-collapse:collapse;width:100%;margin-top:10px;}
+th,td{border:1px solid #ccc;padding:5px;text-align:left;}
+#log{height:150px;overflow:auto;border:1px solid #ccc;margin-top:10px;padding:5px;background:#f9f9f9;}
 </style>
 </head>
 <body>
+<header>HKD Invoice Management</header>
 
-<div id="sidebar">
-  <h3>Danh sách công ty</h3>
-  <ul id="companyList"></ul>
-  <hr>
-  <input type="file" id="zipInput" multiple accept=".zip">
-  <div id="logDiv"></div>
-</div>
+<input type="file" id="zipInput" multiple accept=".zip">
+<div id="log"></div>
 
-<div id="main">
-  <div id="tabs">
-    <div class="tab active" data-tab="hoadon">Hoá đơn DV</div>
-    <div class="tab" data-tab="tonkho">Kho</div>
-    <div class="tab" data-tab="xuathang">Xuất hàng</div>
-    <div class="tab" data-tab="ketoan">Kế toán</div>
-  </div>
-  <div id="tabContents">
-    <div id="hoadon" class="tab-content"></div>
-    <div id="tonkho" class="tab-content" style="display:none;"></div>
-    <div id="xuathang" class="tab-content" style="display:none;"></div>
-    <div id="ketoan" class="tab-content" style="display:none;"></div>
-  </div>
-</div>
+<nav>
+  <button class="tab-btn active" data-tab="hoadon">Hóa đơn</button>
+  <button class="tab-btn" data-tab="tonkho">Kho</button>
+  <button class="tab-btn" data-tab="xuathang">Xuất hàng</button>
+  <button class="tab-btn" data-tab="ketoan">Kế toán</button>
+</nav>
 
-<!-- Thư viện JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+<section id="hoadon" class="tab-content active">
+  <h2>Danh sách hóa đơn</h2>
+  <div id="hoadonTable"></div>
+</section>
+
+<section id="tonkho" class="tab-content">
+  <h2>Chi tiết tồn kho</h2>
+  <div id="tonkhoTable"></div>
+</section>
+
+<section id="xuathang" class="tab-content">
+  <h2>Xuất hàng</h2>
+  <div id="xuathangTable"></div>
+</section>
+
+<section id="ketoan" class="tab-content">
+  <h2>Kế toán</h2>
+  <div id="ketoanTable"></div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="zip-trichxuat.js"></script>
 <script src="hoadon.js"></script>
 <script src="tonkho.js"></script>
 <script src="xuathang.js"></script>
 <script src="ketoan.js"></script>
-
 <script>
-// Log UI
-window.logAction=function(msg){
-  const logDiv=document.getElementById('logDiv');
-  const p=document.createElement('div'); p.textContent=msg; logDiv.appendChild(p);
-  logDiv.scrollTop=logDiv.scrollHeight;
-};
-
-// Chuyển tab
-const tabs=document.querySelectorAll('.tab');
-tabs.forEach(tab=>{
-  tab.addEventListener('click',()=>{
-    tabs.forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    const name=tab.dataset.tab;
-    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
-    document.getElementById(name).style.display='block';
+const tabs = document.querySelectorAll('.tab-btn');
+tabs.forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    tabs.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(sec=>sec.classList.remove('active'));
+    document.getElementById(btn.dataset.tab).classList.add('active');
   });
 });
 
-// Render danh sách công ty
-function renderCompanyList(){
-  const ul=document.getElementById('companyList');
-  ul.innerHTML='';
-  for(const taxCode in hkdData){
-    const li=document.createElement('li'); li.textContent=taxCode;
-    li.style.cursor='pointer';
-    li.addEventListener('click',()=>{ renderInvoices(taxCode); renderStock(taxCode); });
-    ul.appendChild(li);
-  }
-}
-
-// Input ZIP
-document.getElementById('zipInput').addEventListener('change',async (e)=>{
-  const files=e.target.files;
-  if(files.length===0) return;
-  await handleZipFiles(files);
-  renderCompanyList();
+// Tự động xử lý khi chọn file ZIP
+document.getElementById('zipInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files);
+  if(files.length) await handleZipFiles(files);
+  if(window.renderHoadon) window.renderHoadon();
+  if(window.renderTonkho) window.renderTonkho();
+  if(window.renderXuatHang) window.renderXuatHang();
+  if(window.renderKeToan) window.renderKeToan();
 });
-
-// Render hóa đơn
-function renderInvoices(taxCode){
-  if(!hkdData[taxCode]) return;
-  const container=document.getElementById('hoadon');
-  container.innerHTML='';
-  const table=document.createElement('table'); table.border=1; table.cellPadding=3; table.style.width='100%';
-  const thead=document.createElement('thead'); 
-  thead.innerHTML='<tr><th>STT</th><th>MSP</th><th>Tên hàng</th><th>SL</th><th>ĐG</th><th>CK</th><th>Thành tiền</th><th>Thuế</th><th>Tổng</th></tr>';
-  table.appendChild(thead);
-  const tbody=document.createElement('tbody');
-  let sttAll=0; let totalQty=0; let totalAmount=0;
-  hkdData[taxCode].invoices.forEach(inv=>{
-    inv.products.forEach(p=>{
-      sttAll++; totalQty+=p.quantity; totalAmount+=p.amount;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${sttAll}</td><td>${p.msp}</td><td>${p.name}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.discount}</td><td>${p.amount}</td><td>${p.taxRate}</td><td>${p.amount+(p.amount*p.taxRate/100)}</td>`;
-      tbody.appendChild(tr);
-    });
-  });
-  table.appendChild(tbody);
-  container.appendChild(table);
-}
-
-// Render tồn kho
-function renderStock(taxCode){
-  if(!hkdData[taxCode]) return;
-  const container=document.getElementById('tonkho');
-  container.innerHTML='';
-  const table=document.createElement('table'); table.border=1; table.cellPadding=3; table.style.width='100%';
-  const thead=document.createElement('thead');
-  thead.innerHTML='<tr><th>MSP</th><th>Tên</th><th>Đơn vị</th><th>SL tồn</th><th>ĐG</th><th>Giá trị</th></tr>';
-  table.appendChild(thead);
-  const tbody=document.createElement('tbody');
-  hkdData[taxCode].tonkhoMain.forEach(p=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.msp}</td><td>${p.name}</td><td>${p.unit}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.amount}</td>`;
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  container.appendChild(table);
-}
-
-// Xuất hàng và kế toán sẽ render trong các file JS tương ứng
 </script>
 </body>
 </html>
