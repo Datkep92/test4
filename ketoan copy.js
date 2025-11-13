@@ -58,8 +58,7 @@ const CHART_OF_ACCOUNTS = {
 };
 
 class AccountingSystem {
-    constructor(taxCode) {
-        this.taxCode = taxCode;
+    constructor() {
         this.journalEntries = [];
         this.generalLedger = {};
         this.initLedger();
@@ -98,12 +97,12 @@ class AccountingSystem {
 
         invoice.products.forEach(product => {
             if (product.category === 'hang_hoa') {
-                inventoryAmount += product.amount || 0;
-                inputVAT += product.taxAmount || 0;
+                inventoryAmount += product.amount;
+                inputVAT += product.taxAmount;
             } else if (product.category === 'chiet_khau') {
-                discountAmount += Math.abs(product.amount || 0);
+                discountAmount += Math.abs(product.amount);
             } else if (product.category === 'khuyen_mai') {
-                promotionAmount += product.amount || 0;
+                promotionAmount += product.amount;
             }
         });
 
@@ -164,7 +163,7 @@ class AccountingSystem {
             transactions: []
         };
 
-        const totalCost = exportRecord.totalValue || 0;
+        const totalCost = exportRecord.totalValue;
 
         // Định khoản nghiệp vụ xuất bán
         // Nợ 632 - Giá vốn hàng bán
@@ -202,7 +201,7 @@ class AccountingSystem {
 
         // Nợ 111/112 - Tiền mặt/Tiền gửi ngân hàng
         entry.transactions.push({
-            account: '111',
+            account: '111', // Có thể thay bằng 112 nếu là ngân hàng
             debit: amount,
             credit: 0,
             description: 'Thu tiền ' + description
@@ -407,151 +406,58 @@ class AccountingSystem {
         return {
             account: accountNumber,
             name: account.name,
-            openingBalance: 0,
+            openingBalance: 0, // Có thể tính từ ngày trước đó
             transactions,
             closingBalance: account.balance
         };
     }
 }
 
-// Quản lý hệ thống kế toán cho từng công ty
-window.accountingSystems = {};
-
-// Hàm lấy hệ thống kế toán của công ty hiện tại
-function getCurrentAccountingSystem() {
-    if (!window.currentCompany) {
-        console.warn('Chưa chọn công ty');
-        return null;
-    }
-    
-    if (!window.accountingSystems[window.currentCompany]) {
-        window.accountingSystems[window.currentCompany] = new AccountingSystem(window.currentCompany);
-        console.log(`✅ Đã khởi tạo hệ thống kế toán cho công ty: ${window.currentCompany}`);
-    }
-    
-    return window.accountingSystems[window.currentCompany];
-}
-
-// Hàm lấy hệ thống kế toán theo MST
-function getAccountingSystem(taxCode) {
-    if (!taxCode) return null;
-    
-    if (!window.accountingSystems[taxCode]) {
-        window.accountingSystems[taxCode] = new AccountingSystem(taxCode);
-    }
-    return window.accountingSystems[taxCode];
-}
-
-// Hàm khởi tạo hệ thống kế toán từ dữ liệu đã lưu
-function initAccountingFromSavedData() {
-    if (!window.hkdData) return;
-    
-    Object.keys(window.hkdData).forEach(taxCode => {
-        const company = window.hkdData[taxCode];
-        if (company.accountingData) {
-            // Khôi phục dữ liệu kế toán từ localStorage
-            window.accountingSystems[taxCode] = new AccountingSystem(taxCode);
-            const accountingSystem = window.accountingSystems[taxCode];
-            
-            accountingSystem.journalEntries = company.accountingData.journalEntries || [];
-            accountingSystem.generalLedger = company.accountingData.generalLedger || {};
-            
-            console.log(`✅ Đã khôi phục dữ liệu kế toán cho công ty: ${taxCode}`);
-        }
-    });
-}
-
-// Hàm lưu dữ liệu kế toán vào hkdData
-function saveAccountingData() {
-    if (!window.hkdData || !window.accountingSystems) return;
-    
-    Object.keys(window.accountingSystems).forEach(taxCode => {
-        const accountingSystem = window.accountingSystems[taxCode];
-        if (accountingSystem && window.hkdData[taxCode]) {
-            window.hkdData[taxCode].accountingData = {
-                journalEntries: accountingSystem.journalEntries,
-                generalLedger: accountingSystem.generalLedger,
-                lastUpdated: new Date().toISOString()
-            };
-        }
-    });
-}
+// Khởi tạo hệ thống kế toán toàn cục
+window.accountingSystem = new AccountingSystem();
 
 // =======================
-// TÍCH HỢP TỰ ĐỘNG VỚI CÁC MODULE KHÁC
+// GIAO DIỆN VÀ TÍCH HỢP
 // =======================
 
-// Tích hợp tự động khi nhập hóa đơn
-function integratePurchaseAccounting(invoice, taxCode) {
-    const accountingSystem = getAccountingSystem(taxCode);
-    if (!accountingSystem) {
-        console.error('Không thể lấy hệ thống kế toán cho MST:', taxCode);
-        return;
+function initAccountingModule() {
+    // 1. Tạo báo cáo theo tháng
+    const generateReportButton = document.getElementById('generate-report');
+    if (generateReportButton) {
+        generateReportButton.addEventListener('click', function() {
+            generateMonthlyReport();
+        });
     }
-    
-    try {
-        accountingSystem.recordPurchase(invoice, taxCode);
-        saveAccountingData();
-        console.log(`✅ Đã tích hợp hạch toán mua hàng cho công ty ${taxCode}`);
-    } catch (error) {
-        console.error(`❌ Lỗi hạch toán mua hàng cho công ty ${taxCode}:`, error);
-    }
-}
 
-// Tích hợp tự động khi xuất hàng
-function integrateSaleAccounting(exportRecord, taxCode) {
-    const accountingSystem = getAccountingSystem(taxCode);
-    if (!accountingSystem) {
-        console.error('Không thể lấy hệ thống kế toán cho MST:', taxCode);
-        return;
+    // 2. Thiết lập tháng mặc định
+    const reportMonthInput = document.getElementById('report-month');
+    if (reportMonthInput) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        reportMonthInput.value = `${year}-${month}`;
     }
+
+    // 3. Khởi tạo giao diện kế toán
+    setupAccountingUI();
     
-    try {
-        accountingSystem.recordSale(exportRecord, taxCode);
-        saveAccountingData();
-        console.log(`✅ Đã tích hợp hạch toán xuất bán cho công ty ${taxCode}`);
-    } catch (error) {
-        console.error(`❌ Lỗi hạch toán xuất bán cho công ty ${taxCode}:`, error);
-    }
+    // 4. Cập nhật thống kê
+    updateAccountingStats();
 }
 
 function setupAccountingUI() {
+    // Thêm các tab mới cho kế toán
     const accountingTabs = `
-        <div class="accounting-container">
-            <div class="accounting-tabs">
-                <button class="accounting-tab-btn active" onclick="showAccountingTab('general-ledger')">
-                    📊 Sổ Cái
-                </button>
-                <button class="accounting-tab-btn" onclick="showAccountingTab('general-journal')">
-                    📝 Nhật Ký Chung
-                </button>
-                <button class="accounting-tab-btn" onclick="showAccountingTab('balance-sheet')">
-                    ⚖️ CĐKT
-                </button>
-                <button class="accounting-tab-btn" onclick="showAccountingTab('income-statement')">
-                    💰 KQKD
-                </button>
-                <button class="accounting-tab-btn" onclick="showAccountingTab('trial-balance')">
-                    🎯 Cân Đối TK
-                </button>
-            </div>
-            
-            <div id="accounting-tab-content" class="accounting-tab-content">
-                <div class="accounting-card">
-                    <div class="accounting-card-header">
-                        🏢 Hệ Thống Kế Toán
-                    </div>
-                    <div class="accounting-card-body">
-                        <div style="text-align: center; padding: 40px;">
-                            <div style="font-size: 48px; margin-bottom: 20px;">📈</div>
-                            <h3>Chào mừng đến với Hệ thống Kế toán</h3>
-                            <p style="color: #6c757d; margin-top: 10px;">
-                                Chọn một tab ở trên để xem thông tin kế toán của công ty
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="accounting-tabs" style="margin-bottom: 20px;">
+            <button class="btn-secondary" onclick="showAccountingTab('general-ledger')">Sổ Cái</button>
+            <button class="btn-secondary" onclick="showAccountingTab('general-journal')">Nhật Ký Chung</button>
+            <button class="btn-secondary" onclick="showAccountingTab('balance-sheet')">CĐKT</button>
+            <button class="btn-secondary" onclick="showAccountingTab('income-statement')">KQKD</button>
+            <button class="btn-secondary" onclick="showAccountingTab('trial-balance')">Cân Đối TK</button>
+        </div>
+        
+        <div id="accounting-tab-content">
+            <!-- Nội dung các tab sẽ được load động -->
         </div>
     `;
 
@@ -559,71 +465,26 @@ function setupAccountingUI() {
     if (keToanTab) {
         const existingTabs = keToanTab.querySelector('.accounting-tabs');
         if (!existingTabs) {
-            keToanTab.querySelector('.content-body').innerHTML = accountingTabs;
+            keToanTab.querySelector('.content-body').insertAdjacentHTML('afterbegin', accountingTabs);
         }
     }
 }
 
-function showAccountingTab(tabName) {
-    const contentDiv = document.getElementById('accounting-tab-content');
-    if (!contentDiv) return;
-
-    // Cập nhật active state cho các nút tab
-    document.querySelectorAll('.accounting-tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Tìm và active nút tab được click
-    const activeBtn = document.querySelector(`.accounting-tab-btn[onclick*="${tabName}"]`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-
-    switch(tabName) {
-        case 'general-ledger':
-            showGeneralLedger();
-            break;
-        case 'general-journal':
-            showGeneralJournal();
-            break;
-        case 'balance-sheet':
-            showBalanceSheet();
-            break;
-        case 'income-statement':
-            showIncomeStatement();
-            break;
-        case 'trial-balance':
-            showTrialBalance();
-            break;
-        default:
-            showGeneralLedger();
-    }
-}
+// =======================
+// CÁC HÀM HIỂN THỊ GIAO DIỆN CÒN THIẾU
+// =======================
 
 function showGeneralJournal() {
     const contentDiv = document.getElementById('accounting-tab-content');
-    const accountingSystem = getCurrentAccountingSystem();
-    
-    if (!accountingSystem) {
-        contentDiv.innerHTML = '<div class="card"><div class="card-header">Thông báo</div><p>Vui lòng chọn công ty để xem sổ kế toán.</p></div>';
-        return;
-    }
-    
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
     
-    const journalEntries = accountingSystem.getGeneralJournal(firstDay, lastDay);
+    const journalEntries = window.accountingSystem.getGeneralJournal(firstDay, lastDay);
     
     let html = `
         <div class="card">
-            <div class="card-header">Sổ Nhật Ký Chung - ${window.hkdData[window.currentCompany]?.name || window.currentCompany} - Tháng ${now.getMonth() + 1}/${now.getFullYear()}</div>
-    `;
-
-    if (journalEntries.length === 0) {
-        html += `<p style="text-align: center; padding: 20px;">Chưa có nghiệp vụ kế toán nào trong tháng này.</p>`;
-    } else {
-        html += `
+            <div class="card-header">Sổ Nhật Ký Chung - Tháng ${now.getMonth() + 1}/${now.getFullYear()}</div>
             <table class="table">
                 <thead>
                     <tr>
@@ -636,172 +497,113 @@ function showGeneralJournal() {
                     </tr>
                 </thead>
                 <tbody>
-        `;
+    `;
 
-        journalEntries.forEach(entry => {
-            entry.transactions.forEach((transaction, index) => {
-                html += `
-                    <tr>
-                        <td>${index === 0 ? window.formatDate(entry.date) : ''}</td>
-                        <td>${index === 0 ? entry.reference : ''}</td>
-                        <td>${index === 0 ? entry.description : ''}</td>
-                        <td>${transaction.account} - ${CHART_OF_ACCOUNTS[transaction.account]?.name || ''}</td>
-                        <td>${transaction.debit > 0 ? window.formatCurrency(transaction.debit) : ''}</td>
-                        <td>${transaction.credit > 0 ? window.formatCurrency(transaction.credit) : ''}</td>
-                    </tr>
-                `;
-            });
-            
-            html += `<tr style="height: 10px; background-color: #f8f9fa;"><td colspan="6"></td></tr>`;
+    journalEntries.forEach(entry => {
+        // Hiển thị từng giao dịch trong bút toán
+        entry.transactions.forEach((transaction, index) => {
+            html += `
+                <tr>
+                    <td>${index === 0 ? window.formatDate(entry.date) : ''}</td>
+                    <td>${index === 0 ? entry.reference : ''}</td>
+                    <td>${index === 0 ? entry.description : ''}</td>
+                    <td>${transaction.account} - ${CHART_OF_ACCOUNTS[transaction.account]?.name || ''}</td>
+                    <td>${transaction.debit > 0 ? window.formatCurrency(transaction.debit) : ''}</td>
+                    <td>${transaction.credit > 0 ? window.formatCurrency(transaction.credit) : ''}</td>
+                </tr>
+            `;
         });
+        
+        // Thêm dòng trống giữa các bút toán
+        html += `<tr style="height: 10px; background-color: #f8f9fa;"><td colspan="6"></td></tr>`;
+    });
 
-        html += `</tbody></table>`;
-    }
-
-    html += `</div>`;
+    html += `</tbody></table></div>`;
     contentDiv.innerHTML = html;
 }
 
 function showGeneralLedger() {
     const contentDiv = document.getElementById('accounting-tab-content');
-    const accountingSystem = getCurrentAccountingSystem();
-    
-    if (!accountingSystem) {
-        contentDiv.innerHTML = `
-            <div class="accounting-card">
-                <div class="accounting-card-header">📊 Thông báo</div>
-                <div class="accounting-card-body">
-                    <p style="text-align: center; padding: 20px; color: #6c757d;">
-                        Vui lòng chọn công ty để xem sổ kế toán.
-                    </p>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
     let html = `
-        <div class="accounting-card">
-            <div class="accounting-card-header">📊 Sổ Cái Tổng Hợp - ${window.hkdData[window.currentCompany]?.name || window.currentCompany}</div>
-            <div class="accounting-card-body">
+        <div class="card">
+            <div class="card-header">Sổ Cái Tổng Hợp</div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tài khoản</th>
+                        <th>Tên tài khoản</th>
+                        <th>Dư nợ</th>
+                        <th>Dư có</th>
+                        <th>Số dư</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
 
-    const hasData = Object.values(accountingSystem.generalLedger).some(account => account.debit > 0 || account.credit > 0);
-    
-    if (!hasData) {
-        html += `
-            <div style="text-align: center; padding: 40px;">
-                <div style="font-size: 48px; margin-bottom: 20px;">📋</div>
-                <h4>Chưa có số liệu kế toán</h4>
-                <p style="color: #6c757d;">Dữ liệu sẽ xuất hiện khi bạn nhập hóa đơn hoặc xuất hàng.</p>
-            </div>
-        `;
-    } else {
-        html += `
-            <div style="overflow-x: auto;">
-                <table class="accounting-table">
-                    <thead>
-                        <tr>
-                            <th>Tài khoản</th>
-                            <th>Tên tài khoản</th>
-                            <th>Dư nợ</th>
-                            <th>Dư có</th>
-                            <th>Số dư</th>
-                            <th>Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        Object.values(accountingSystem.generalLedger).forEach(account => {
-            if (account.debit > 0 || account.credit > 0) {
-                const balanceType = account.type === 'asset' || account.type === 'expense' ? 
-                    (account.balance > 0 ? 'Nợ' : account.balance < 0 ? 'Có' : '') :
-                    (account.balance > 0 ? 'Có' : account.balance < 0 ? 'Nợ' : '');
+    Object.values(window.accountingSystem.generalLedger).forEach(account => {
+        if (account.debit > 0 || account.credit > 0) {
+            const balanceType = account.type === 'asset' || account.type === 'expense' ? 
+                (account.balance > 0 ? 'Nợ' : account.balance < 0 ? 'Có' : '') :
+                (account.balance > 0 ? 'Có' : account.balance < 0 ? 'Nợ' : '');
                 
-                const badgeClass = balanceType === 'Nợ' ? 'balance-badge balance-debit' : 'balance-badge balance-credit';
-                    
-                html += `
-                    <tr>
-                        <td><strong>${account.account}</strong></td>
-                        <td>${account.name}</td>
-                        <td style="text-align: right;">${window.formatCurrency(account.debit)}</td>
-                        <td style="text-align: right;">${window.formatCurrency(account.credit)}</td>
-                        <td style="text-align: right;">
-                            ${window.formatCurrency(Math.abs(account.balance))} 
-                            <span class="${badgeClass}">${balanceType}</span>
-                        </td>
-                        <td>
-                            <button class="accounting-btn accounting-btn-info" onclick="showAccountDetail('${account.account}')">
-                                👁️ Chi tiết
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }
-        });
+            html += `
+                <tr>
+                    <td>${account.account}</td>
+                    <td>${account.name}</td>
+                    <td>${window.formatCurrency(account.debit)}</td>
+                    <td>${window.formatCurrency(account.credit)}</td>
+                    <td>${window.formatCurrency(Math.abs(account.balance))} ${balanceType}</td>
+                    <td>
+                        <button class="btn-sm btn-info" onclick="showAccountDetail('${account.account}')">Chi tiết</button>
+                    </td>
+                </tr>
+            `;
+        }
+    });
 
-        html += `</tbody></table></div>`;
-    }
-
-    html += `</div></div>`;
+    html += `</tbody></table></div>`;
     contentDiv.innerHTML = html;
 }
-function showAccountDetail(accountNumber) {
-    const accountingSystem = getCurrentAccountingSystem();
-    if (!accountingSystem) {
-        alert('Vui lòng chọn công ty.');
-        return;
-    }
 
-    const ledger = accountingSystem.getGeneralLedger(accountNumber);
+function showAccountDetail(accountNumber) {
+    const ledger = window.accountingSystem.getGeneralLedger(accountNumber);
     if (!ledger) {
         alert('Không tìm thấy tài khoản: ' + accountNumber);
         return;
     }
 
-    // Sử dụng CHART_OF_ACCOUNTS đã có sẵn
-    const accountInfo = CHART_OF_ACCOUNTS[accountNumber];
-    if (!accountInfo) {
-        alert('Không tìm thấy thông tin tài khoản: ' + accountNumber);
-        return;
-    }
-
     let detailHtml = `
-        <div class="accounting-card">
-            <div class="accounting-card-header">Sổ Cái Chi Tiết - TK ${accountNumber} - ${ledger.name}</div>
-            <div class="accounting-card-body">
-                <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                    <strong>Loại tài khoản:</strong> ${accountInfo.type || 'Không xác định'} | 
-                    <strong>Phân loại:</strong> ${accountInfo.category || 'Không xác định'}
-                </div>
-                <table class="accounting-table">
-                    <thead>
-                        <tr>
-                            <th>Ngày</th>
-                            <th>Diễn giải</th>
-                            <th>Số hiệu CT</th>
-                            <th>Nợ</th>
-                            <th>Có</th>
-                            <th>Số dư</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+        <div class="card">
+            <div class="card-header">Sổ Cái Chi Tiết - TK ${accountNumber} - ${ledger.name}</div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Diễn giải</th>
+                        <th>Số hiệu CT</th>
+                        <th>Nợ</th>
+                        <th>Có</th>
+                        <th>Số dư</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
 
     let runningBalance = 0;
-    const accountType = accountInfo.type || 'asset';
+    const accountInfo = CHART_OF_ACCOUNTS[accountNumber];
     
     ledger.transactions.forEach(transaction => {
-        if (accountType === 'asset' || accountType === 'expense') {
+        // Tính số dư running
+        if (accountInfo.type === 'asset' || accountInfo.type === 'expense') {
             runningBalance += transaction.debit - transaction.credit;
         } else {
             runningBalance += transaction.credit - transaction.debit;
         }
 
         const balanceType = runningBalance > 0 ? 
-            (accountType === 'asset' || accountType === 'expense' ? 'Nợ' : 'Có') :
-            (runningBalance < 0 ? (accountType === 'asset' || accountType === 'expense' ? 'Có' : 'Nợ') : '');
+            (accountInfo.type === 'asset' || accountInfo.type === 'expense' ? 'Nợ' : 'Có') :
+            (runningBalance < 0 ? (accountInfo.type === 'asset' || accountInfo.type === 'expense' ? 'Có' : 'Nợ') : '');
 
         detailHtml += `
             <tr>
@@ -816,14 +618,13 @@ function showAccountDetail(accountNumber) {
     });
 
     detailHtml += `
-                    </tbody>
-                </table>
-                <div style="text-align: right; margin-top: 10px; font-weight: bold;">
-                    Số dư cuối kỳ: ${window.formatCurrency(Math.abs(ledger.closingBalance))} 
-                    ${ledger.closingBalance > 0 ? 
-                        (accountType === 'asset' || accountType === 'expense' ? 'Nợ' : 'Có') : 
-                        (ledger.closingBalance < 0 ? (accountType === 'asset' || accountType === 'expense' ? 'Có' : 'Nợ') : '')}
-                </div>
+                </tbody>
+            </table>
+            <div style="text-align: right; margin-top: 10px; font-weight: bold;">
+                Số dư cuối kỳ: ${window.formatCurrency(Math.abs(ledger.closingBalance))} 
+                ${ledger.closingBalance > 0 ? 
+                    (accountInfo.type === 'asset' || accountInfo.type === 'expense' ? 'Nợ' : 'Có') : 
+                    (ledger.closingBalance < 0 ? (accountInfo.type === 'asset' || accountInfo.type === 'expense' ? 'Có' : 'Nợ') : '')}
             </div>
         </div>
     `;
@@ -832,19 +633,11 @@ function showAccountDetail(accountNumber) {
 }
 
 function showBalanceSheet() {
-    const contentDiv = document.getElementById('accounting-tab-content');
-    const accountingSystem = getCurrentAccountingSystem();
-    
-    if (!accountingSystem) {
-        contentDiv.innerHTML = '<div class="card"><div class="card-header">Thông báo</div><p>Vui lòng chọn công ty để xem báo cáo.</p></div>';
-        return;
-    }
-    
-    const balanceSheet = accountingSystem.generateBalanceSheet(new Date().toISOString().split('T')[0]);
+    const balanceSheet = window.accountingSystem.generateBalanceSheet(new Date().toISOString().split('T')[0]);
     
     let html = `
         <div class="card">
-            <div class="card-header">Bảng Cân Đối Kế Toán - ${window.hkdData[window.currentCompany]?.name || window.currentCompany} - ${window.formatDate(balanceSheet.asOfDate)}</div>
+            <div class="card-header">Bảng Cân Đối Kế Toán - ${window.formatDate(balanceSheet.asOfDate)}</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <h4>TÀI SẢN</h4>
@@ -887,27 +680,19 @@ function showBalanceSheet() {
         </div>
     `;
 
-    contentDiv.innerHTML = html;
+    document.getElementById('accounting-tab-content').innerHTML = html;
 }
 
 function showIncomeStatement() {
-    const contentDiv = document.getElementById('accounting-tab-content');
-    const accountingSystem = getCurrentAccountingSystem();
-    
-    if (!accountingSystem) {
-        contentDiv.innerHTML = '<div class="card"><div class="card-header">Thông báo</div><p>Vui lòng chọn công ty để xem báo cáo.</p></div>';
-        return;
-    }
-    
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
     
-    const incomeStatement = accountingSystem.generateIncomeStatement(firstDay, lastDay);
+    const incomeStatement = window.accountingSystem.generateIncomeStatement(firstDay, lastDay);
     
     let html = `
         <div class="card">
-            <div class="card-header">Báo Cáo Kết Quả Kinh Doanh - ${window.hkdData[window.currentCompany]?.name || window.currentCompany} - Tháng ${now.getMonth() + 1}/${now.getFullYear()}</div>
+            <div class="card-header">Báo Cáo Kết Quả Kinh Doanh - Tháng ${now.getMonth() + 1}/${now.getFullYear()}</div>
             <table class="table">
                 <tr>
                     <td><strong>1. Doanh thu bán hàng và cung cấp dịch vụ</strong></td>
@@ -945,23 +730,15 @@ function showIncomeStatement() {
         </div>
     `;
 
-    contentDiv.innerHTML = html;
+    document.getElementById('accounting-tab-content').innerHTML = html;
 }
 
 function showTrialBalance() {
-    const contentDiv = document.getElementById('accounting-tab-content');
-    const accountingSystem = getCurrentAccountingSystem();
-    
-    if (!accountingSystem) {
-        contentDiv.innerHTML = '<div class="card"><div class="card-header">Thông báo</div><p>Vui lòng chọn công ty để xem báo cáo.</p></div>';
-        return;
-    }
-    
-    const trialBalance = accountingSystem.checkTrialBalance();
+    const trialBalance = window.accountingSystem.checkTrialBalance();
     
     let html = `
         <div class="card">
-            <div class="card-header">Bảng Cân Đối Số Phát Sinh - ${window.hkdData[window.currentCompany]?.name || window.currentCompany}</div>
+            <div class="card-header">Bảng Cân Đối Số Phát Sinh</div>
             <table class="table">
                 <thead>
                     <tr>
@@ -974,7 +751,7 @@ function showTrialBalance() {
                 <tbody>
     `;
 
-    Object.values(accountingSystem.generalLedger).forEach(account => {
+    Object.values(window.accountingSystem.generalLedger).forEach(account => {
         if (account.debit > 0 || account.credit > 0) {
             html += `
                 <tr>
@@ -1003,13 +780,303 @@ function showTrialBalance() {
         </div>
     `;
 
-    contentDiv.innerHTML = html;
+    document.getElementById('accounting-tab-content').innerHTML = html;
 }
 
 // =======================
-// THỐNG KÊ VÀ BÁO CÁO
+// CẬP NHẬT HÀM showAccountingTab
+// =======================
+function showAccountingTab(tabName) {
+    const contentDiv = document.getElementById('accounting-tab-content');
+    if (!contentDiv) return;
+
+    switch(tabName) {
+        case 'general-ledger':
+            showGeneralLedger();
+            break;
+        case 'general-journal':
+            showGeneralJournal();
+            break;
+        case 'balance-sheet':
+            showBalanceSheet();
+            break;
+        case 'income-statement':
+            showIncomeStatement();
+            break;
+        case 'trial-balance':
+            showTrialBalance();
+            break;
+        default:
+            showGeneralLedger(); // Mặc định hiển thị sổ cái
+    }
+}
+
+function showGeneralLedger() {
+    const contentDiv = document.getElementById('accounting-tab-content');
+    let html = `
+        <div class="card">
+            <div class="card-header">Sổ Cái Tổng Hợp</div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tài khoản</th>
+                        <th>Tên tài khoản</th>
+                        <th>Dư nợ</th>
+                        <th>Dư có</th>
+                        <th>Số dư</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    Object.values(window.accountingSystem.generalLedger).forEach(account => {
+        if (account.debit > 0 || account.credit > 0) {
+            html += `
+                <tr>
+                    <td>${account.account}</td>
+                    <td>${account.name}</td>
+                    <td>${window.formatCurrency(account.debit)}</td>
+                    <td>${window.formatCurrency(account.credit)}</td>
+                    <td>${window.formatCurrency(account.balance)}</td>
+                    <td>
+                        <button class="btn-sm btn-info" onclick="showAccountDetail('${account.account}')">Chi tiết</button>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    html += `</tbody></table></div>`;
+    contentDiv.innerHTML = html;
+}
+
+function showAccountDetail(accountNumber) {
+    const ledger = window.accountingSystem.getGeneralLedger(accountNumber);
+    if (!ledger) return;
+
+    let detailHtml = `
+        <div class="card">
+            <div class="card-header">Sổ Cái Chi Tiết - TK ${accountNumber} - ${ledger.name}</div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Diễn giải</th>
+                        <th>Số hiệu CT</th>
+                        <th>Nợ</th>
+                        <th>Có</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    ledger.transactions.forEach(transaction => {
+        detailHtml += `
+            <tr>
+                <td>${window.formatDate(transaction.date)}</td>
+                <td>${transaction.description}</td>
+                <td>${transaction.reference}</td>
+                <td>${transaction.debit > 0 ? window.formatCurrency(transaction.debit) : ''}</td>
+                <td>${transaction.credit > 0 ? window.formatCurrency(transaction.credit) : ''}</td>
+            </tr>
+        `;
+    });
+
+    detailHtml += `
+                </tbody>
+            </table>
+            <div style="text-align: right; margin-top: 10px; font-weight: bold;">
+                Số dư cuối kỳ: ${window.formatCurrency(ledger.closingBalance)}
+            </div>
+        </div>
+    `;
+
+    window.showModal(`Sổ Cái TK ${accountNumber}`, detailHtml);
+}
+
+function showBalanceSheet() {
+    const balanceSheet = window.accountingSystem.generateBalanceSheet(new Date().toISOString().split('T')[0]);
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">Bảng Cân Đối Kế Toán - ${window.formatDate(balanceSheet.asOfDate)}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <h4>TÀI SẢN</h4>
+                    <table class="table">
+                        <tr>
+                            <td><strong>Tài sản ngắn hạn</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.assets.currentAssets)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tài sản dài hạn</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.assets.fixedAssets)}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #333; font-weight: bold;">
+                            <td><strong>TỔNG TÀI SẢN</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.assets.totalAssets)}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div>
+                    <h4>NGUỒN VỐN</h4>
+                    <table class="table">
+                        <tr>
+                            <td><strong>Nợ phải trả</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.liabilities.totalLiabilities)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Vốn chủ sở hữu</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.equity.totalEquity)}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #333; font-weight: bold;">
+                            <td><strong>TỔNG NGUỒN VỐN</strong></td>
+                            <td style="text-align: right;">${window.formatCurrency(balanceSheet.liabilities.totalLiabilities + balanceSheet.equity.totalEquity)}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div style="margin-top: 20px; text-align: center; color: ${balanceSheet.isBalanced ? 'green' : 'red'};">
+                <strong>${balanceSheet.isBalanced ? '✓ CÂN ĐỐI' : '✗ KHÔNG CÂN ĐỐI'}</strong>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('accounting-tab-content').innerHTML = html;
+}
+
+function showIncomeStatement() {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+    
+    const incomeStatement = window.accountingSystem.generateIncomeStatement(firstDay, lastDay);
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">Báo Cáo Kết Quả Kinh Doanh - Tháng ${now.getMonth() + 1}/${now.getFullYear()}</div>
+            <table class="table">
+                <tr>
+                    <td><strong>Doanh thu thuần</strong></td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.revenue)}</td>
+                </tr>
+                <tr>
+                    <td>Giá vốn hàng bán</td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.costOfGoodsSold)}</td>
+                </tr>
+                <tr style="border-top: 1px solid #333; font-weight: bold;">
+                    <td><strong>Lợi nhuận gộp</strong></td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.grossProfit)}</td>
+                </tr>
+                <tr>
+                    <td>Chi phí bán hàng & QLDN</td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.operatingExpenses)}</td>
+                </tr>
+                <tr style="border-top: 1px solid #333; font-weight: bold;">
+                    <td><strong>Lợi nhuận thuần từ HĐKD</strong></td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.operatingProfit)}</td>
+                </tr>
+                <tr>
+                    <td>Chi phí tài chính</td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.financialExpenses)}</td>
+                </tr>
+                <tr>
+                    <td>Chi phí khác</td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.otherExpenses)}</td>
+                </tr>
+                <tr style="border-top: 2px solid #333; font-weight: bold; background-color: #f8f9fa;">
+                    <td><strong>LỢI NHUẬN SAU THUẾ</strong></td>
+                    <td style="text-align: right;">${window.formatCurrency(incomeStatement.netProfit)}</td>
+                </tr>
+            </table>
+        </div>
+    `;
+
+    document.getElementById('accounting-tab-content').innerHTML = html;
+}
+
+function showTrialBalance() {
+    const trialBalance = window.accountingSystem.checkTrialBalance();
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">Bảng Cân Đối Số Phát Sinh</div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tài khoản</th>
+                        <th>Tên tài khoản</th>
+                        <th>Phát sinh Nợ</th>
+                        <th>Phát sinh Có</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    Object.values(window.accountingSystem.generalLedger).forEach(account => {
+        if (account.debit > 0 || account.credit > 0) {
+            html += `
+                <tr>
+                    <td>${account.account}</td>
+                    <td>${account.name}</td>
+                    <td>${window.formatCurrency(account.debit)}</td>
+                    <td>${window.formatCurrency(account.credit)}</td>
+                </tr>
+            `;
+        }
+    });
+
+    html += `
+                </tbody>
+                <tfoot style="border-top: 2px solid #333; font-weight: bold;">
+                    <tr>
+                        <td colspan="2"><strong>TỔNG CỘNG</strong></td>
+                        <td>${window.formatCurrency(trialBalance.totalDebit)}</td>
+                        <td>${window.formatCurrency(trialBalance.totalCredit)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="text-align: center; margin-top: 20px; color: ${trialBalance.isBalanced ? 'green' : 'red'};">
+                <strong>${trialBalance.isBalanced ? '✓ CÂN ĐỐI' : `✗ KHÔNG CÂN ĐỐI - Chênh lệch: ${window.formatCurrency(trialBalance.difference)}`}</strong>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('accounting-tab-content').innerHTML = html;
+}
+
+// =======================
+// TÍCH HỢP TỰ ĐỘNG VỚI CÁC MODULE KHÁC
 // =======================
 
+// Tích hợp tự động khi nhập hóa đơn
+function integratePurchaseAccounting(invoice, taxCode) {
+    if (!window.accountingSystem) return;
+    
+    try {
+        window.accountingSystem.recordPurchase(invoice, taxCode);
+        console.log('✅ Đã tích hợp hạch toán mua hàng tự động');
+    } catch (error) {
+        console.error('❌ Lỗi hạch toán mua hàng:', error);
+    }
+}
+
+// Tích hợp tự động khi xuất hàng
+function integrateSaleAccounting(exportRecord, taxCode) {
+    if (!window.accountingSystem) return;
+    
+    try {
+        window.accountingSystem.recordSale(exportRecord, taxCode);
+        console.log('✅ Đã tích hợp hạch toán xuất bán tự động');
+    } catch (error) {
+        console.error('❌ Lỗi hạch toán xuất bán:', error);
+    }
+}
+
+// =======================
+// CẬP NHẬT THỐNG KÊ
+// =======================
 function updateAccountingStats() {
     const totalInvoicesEl = document.getElementById('total-invoices');
     const totalInvoiceValueEl = document.getElementById('total-invoice-value');
@@ -1052,123 +1119,9 @@ function updateAccountingStats() {
     totalStockValueEl.textContent = window.formatCurrency(totalStockValue);
 }
 
-function generateMonthlyReport() {
-    if (!window.currentCompany || !window.hkdData[window.currentCompany]) {
-        alert('Vui lòng chọn công ty để tạo báo cáo.');
-        return;
-    }
-    
-    const reportMonthInput = document.getElementById('report-month');
-    const reportDataEl = document.getElementById('report-data');
-    const reportContainer = document.getElementById('monthly-report');
-
-    if (!reportMonthInput || !reportDataEl || !reportContainer) return;
-    
-    const [yearStr, monthStr] = reportMonthInput.value.split('-');
-    const year = parseInt(yearStr);
-    const month = parseInt(monthStr);
-
-    if (isNaN(year) || isNaN(month)) {
-        alert('Vui lòng chọn tháng hợp lệ.');
-        return;
-    }
-
-    const hkd = window.hkdData[window.currentCompany];
-    
-    // Lọc hóa đơn theo tháng
-    const monthlyInvoices = (hkd.invoices || []).filter(invoice => {
-        const invoiceDate = new Date(invoice.invoiceInfo.date);
-        return invoiceDate.getFullYear() === year && invoiceDate.getMonth() + 1 === month;
-    });
-
-    // Lọc xuất hàng theo tháng
-    const monthlyExports = (hkd.exports || []).filter(exportRecord => {
-        const exportDate = new Date(exportRecord.date);
-        return exportDate.getFullYear() === year && exportDate.getMonth() + 1 === month;
-    });
-
-    // Tính toán thống kê
-    let totalInvoiceValue = 0;
-    let totalExportValue = 0;
-
-    monthlyInvoices.forEach(invoice => {
-        totalInvoiceValue += invoice.summary.calculatedTotal || 0;
-    });
-
-    monthlyExports.forEach(exportRecord => {
-        totalExportValue += exportRecord.totalValue || 0;
-    });
-
-    const grossProfit = totalInvoiceValue - totalExportValue;
-
-    // Tạo báo cáo
-    const report = {
-        'Tổng số hóa đơn nhập': monthlyInvoices.length,
-        'Tổng giá trị nhập kho': totalInvoiceValue,
-        'Tổng số phiếu xuất': monthlyExports.length,
-        'Tổng giá trị xuất kho': totalExportValue,
-        'Lợi nhuận gộp (tham khảo)': grossProfit
-    };
-    
-    // Hiển thị báo cáo
-    reportDataEl.innerHTML = '';
-    
-    document.getElementById('report-month-display').textContent = `${month}/${year}`;
-
-    for (const [key, value] of Object.entries(report)) {
-        const row = document.createElement('tr');
-        const isCalculation = key.includes('Lợi nhuận');
-        
-        if (isCalculation) {
-            row.style.fontWeight = 'bold';
-            row.style.borderTop = '2px solid var(--primary, #007bff)';
-        }
-        
-        const displayValue = typeof value === 'number' && value >= 1000 ? 
-            window.formatCurrency(value) : value.toLocaleString('vi-VN');
-
-        row.innerHTML = `
-            <td>${key}</td>
-            <td style="text-align: right;">${displayValue}</td>
-        `;
-        reportDataEl.appendChild(row);
-    }
-    
-    reportContainer.classList.remove('hidden');
-}
-
 // =======================
-// KHỞI TẠO MODULE
+// Exports toàn cục
 // =======================
-
-function initAccountingModule() {
-    // 1. Khởi tạo dữ liệu kế toán từ localStorage
-    initAccountingFromSavedData();
-    
-    // 2. Tạo báo cáo theo tháng
-    const generateReportButton = document.getElementById('generate-report');
-    if (generateReportButton) {
-        generateReportButton.addEventListener('click', function() {
-            generateMonthlyReport();
-        });
-    }
-
-    // 3. Thiết lập tháng mặc định
-    const reportMonthInput = document.getElementById('report-month');
-    if (reportMonthInput) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        reportMonthInput.value = `${year}-${month}`;
-    }
-
-    // 4. Khởi tạo giao diện kế toán
-    setupAccountingUI();
-    
-    // 5. Cập nhật thống kê
-    updateAccountingStats();
-}
-
 // =======================
 // Exports toàn cục
 // =======================
@@ -1183,6 +1136,3 @@ window.showGeneralLedger = showGeneralLedger;
 window.showBalanceSheet = showBalanceSheet;
 window.showIncomeStatement = showIncomeStatement;
 window.showTrialBalance = showTrialBalance;
-window.saveAccountingData = saveAccountingData;
-window.getCurrentAccountingSystem = getCurrentAccountingSystem;
-window.generateMonthlyReport = generateMonthlyReport;

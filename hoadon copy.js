@@ -479,11 +479,6 @@ function saveEditedInvoiceAndPostStock(originalInvoice) {
     // Nhập tồn kho
     updateStockWithEditedInvoice(window.currentCompany, originalInvoice, useCustomMSP);
     
-    // 🔥 QUAN TRỌNG: Tích hợp với hệ thống kế toán
-    if (typeof window.integratePurchaseAccounting === 'function') {
-        window.integratePurchaseAccounting(originalInvoice, window.currentCompany);
-    }
-    
     // Cập nhật giao diện
     renderInvoices();
     if (typeof window.renderStock === 'function') window.renderStock();
@@ -494,11 +489,6 @@ function saveEditedInvoiceAndPostStock(originalInvoice) {
     document.getElementById('custom-modal').remove();
     
     alert('✅ Đã lưu chỉnh sửa và nhập tồn kho thành công!');
-    
-    // Lưu dữ liệu
-    if (typeof window.saveData === 'function') {
-        window.saveData();
-    }
 }
 
 // =======================
@@ -744,11 +734,6 @@ function fixInvoiceAndPostStock(invoiceId) {
         invoice.status.stockPosted = true;
         invoice.status.validation = 'manual_fixed'; // Đánh dấu đã sửa thủ công
         
-        // 🔥 QUAN TRỌNG: Tích hợp với hệ thống kế toán
-        if (typeof window.integratePurchaseAccounting === 'function') {
-            window.integratePurchaseAccounting(invoice, window.currentCompany);
-        }
-        
         // Cập nhật giao diện
         renderInvoices();
         if (typeof window.renderStock === 'function') window.renderStock();
@@ -758,17 +743,13 @@ function fixInvoiceAndPostStock(invoiceId) {
         document.getElementById('custom-modal').remove();
         
         alert('✅ Đã nhập tồn kho thành công!');
-        
-        // Lưu dữ liệu
-        if (typeof window.saveData === 'function') {
-            window.saveData();
-        }
     });
     
     document.getElementById('cancel-post-stock').addEventListener('click', function() {
         document.getElementById('custom-modal').remove();
     });
 }
+
 // =======================
 // Cập nhật hàm renderInvoices để hiển thị nút sửa
 // =======================

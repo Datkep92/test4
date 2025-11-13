@@ -1,174 +1,287 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<title>Hệ thống Quản lý HĐ và Kho</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-  #header { background: #007BFF; color: white; padding: 10px; text-align: center; }
-  #container { display: flex; height: calc(100vh - 50px); }
-  #sidebar { width: 200px; background: #f0f0f0; padding: 10px; overflow-y: auto; }
-  #main { flex: 1; padding: 10px; overflow-y: auto; }
-  button.tab { display: block; width: 100%; margin-bottom: 5px; padding: 10px; cursor: pointer; }
-  .tab-content { display: none; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  table, th, td { border: 1px solid #ccc; }
-  th, td { padding: 5px; text-align: left; }
-  #logOutput { background: #111; color: #0f0; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; margin-top: 10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Hóa Đơn Điện Tử</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<div id="header">
-  <h2>Hệ thống Quản lý HĐ và Kho</h2>
-  <input type="file" id="zipInput" multiple accept=".zip">
+    
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h3>DANH SÁCH CÔNG TY</h3>
+        </div>
+        <div class="company-list" id="company-list">
+            <div class="company-item">Chưa có dữ liệu</div>
+        </div>
+        <div class="sidebar-footer" style="padding: 20px; border-top: 1px solid #ddd;">
+            <button id="clear-all-data" class="btn-danger" style="width: 100%;">Xóa Hết Dữ Liệu</button>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">HỆ THỐNG QUẢN LÝ HÓA ĐƠN ĐIỆN TỬ</div>
+                <div class="current-company" id="current-company">Chọn công ty để xem thông tin</div>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="trich-xuat">Trích Xuất HĐ</div>
+            <div class="nav-tab" data-tab="hoadon">Quản Lý Hóa Đơn</div>
+            <div class="nav-tab" data-tab="ton-kho">Quản Lý Tồn Kho</div>
+            <div class="nav-tab" data-tab="xuat-hang">Xuất Hàng</div>
+            <div class="nav-tab" data-tab="ke-toan">Kế Toán & Báo Cáo</div>
+        </div>
+        
+        <div class="tab-content active" id="trich-xuat">
+            <div class="content-header">
+                <h2>Trích Xuất Hóa Đơn Điện Tử</h2>
+            </div>
+            <div class="content-body">
+                <div class="card">
+                    <div class="card-header">1. Chọn File Hóa Đơn (ZIP/XML)</div>
+                    <div class="form-group">
+                        <input type="file" id="zip-file-input" multiple accept=".zip, .xml">
+                    </div>
+                    <button id="process-files" class="btn-primary">Bắt Đầu Trích Xuất & Cập Nhật Hệ Thống</button>
+                </div>
+                
+                <div class="card" id="file-stats">
+    <div class="card-header">2. Thống Kê Xử Lý</div>
+    <div class="stats-grid">
+        <p>Tổng số file: <span id="total-files" class="stat-number">0</span></p>
+        <p class="text-success">Thành công: <span id="success-count" class="stat-number">0</span></p>
+        <p class="text-warning">Trùng lặp: <span id="duplicate-count" class="stat-number">0</span></p>
+        <p class="text-danger">Lỗi: <span id="error-count" class="stat-number">0</span></p>
+        <p class="text-info">Đã chuyển kho: <span id="stock-posted-count" class="stat-number">0</span></p>
+    </div>
+</div>
+                
+                <div class="card hidden" id="file-results-card">
+                    <div class="card-header">3. Chi Tiết Kết Quả</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Trạng Thái</th>
+                                <th>Chi Tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-results-list">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Hóa Đơn -->
+<div class="tab-content" id="hoadon">
+    <div class="content-header">
+        <h2>Quản Lý Hóa Đơn Nhập - <span id="company-name-hoadon"></span></h2>
+    </div>
+    <div class="content-body">
+        <div class="card">
+            <!-- Thống kê hóa đơn -->
+            <div id="invoice-stats"></div>
+            
+            <div class="form-group">
+                <label for="search-invoice">Tìm kiếm Hóa đơn (Mẫu/Số/MST/Tên)</label>
+                <input type="text" id="search-invoice" placeholder="Nhập Ký hiệu, Số HĐ, MST hoặc Tên người bán...">
+            </div>
+            
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Số HĐ</th>
+                        <th>Ngày</th>
+                        <th>Nhà cung cấp</th>
+                        <th>MST NCC</th>
+                        <th>Loại HĐ</th>
+                        <th>PTTT</th>
+                        <th>Tổng tiền (VAT)</th>
+                        <th>Thuế</th>
+                        <th>Chiết khấu</th>
+                        <th>Chênh lệch</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="invoice-list">
+                    <tr><td colspan="12" style="text-align: center;">Vui lòng chọn công ty và nhập hóa đơn</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-<div id="container">
-  <div id="sidebar">
-    <h3>Danh sách công ty</h3>
-    <div id="companyList"></div>
-    <button class="tab" data-tab="hoadon">Hoá đơn</button>
-    <button class="tab" data-tab="tonkho">Kho</button>
-    <button class="tab" data-tab="xuathang">Xuất hàng</button>
-    <button class="tab" data-tab="ketoan">Kế toán</button>
-  </div>
-  <div id="main">
-    <div id="hoadon" class="tab-content">
-      <h3>Hoá đơn</h3>
-      <table id="invoiceTable">
-        <thead>
-          <tr>
-            <th>STT</th><th>MST</th><th>HĐ</th><th>Ngày</th><th>Trạng thái</th><th>Tổng tiền</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+<!-- Tab Tồn Kho -->
+<div class="tab-content" id="ton-kho">
+    <div class="content-header">
+        <h2>Quản Lý Tồn Kho Hiện Tại - <span id="company-name-tonkho"></span></h2>
     </div>
-    <div id="tonkho" class="tab-content">
-      <h3>Tồn kho</h3>
-      <table id="stockTable">
-        <thead>
-          <tr>
-            <th>MSP</th><th>Tên hàng</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="content-body">
+        <div class="card">
+            <!-- Thống kê tồn kho -->
+            <div id="stock-stats"></div>
+            
+            <!-- Nút lọc -->
+            <div class="stock-filter-buttons">
+                <button class="stock-filter-btn active" data-filter="all">Tất cả</button>
+                <button class="stock-filter-btn" data-filter="normal">Hàng hóa</button>
+                <button class="stock-filter-btn" data-filter="ck">Chiết khấu</button>
+                <button class="stock-filter-btn" data-filter="km">Khuyến mãi</button>
+            </div>
+
+            <div class="form-group">
+                <label for="search-stock">Tìm kiếm Sản phẩm (Mã/Tên)</label>
+                <input type="text" id="search-stock" placeholder="Nhập Mã SP hoặc Tên SP...">
+            </div>
+
+            <!-- Trong tab Tồn Kho -->
+<!-- Trong tab Tồn Kho -->
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>STT</th>
+            <th>Mã SP</th>
+            <th>Tên hàng hóa</th>
+            <th>ĐVT</th>
+            <th>Số lượng</th>
+            <th>Đơn giá nhập</th>
+            <th>Chiết khấu</th>
+            <th>Tỷ lệ CK</th>
+            <th>Thành tiền (trước thuế)</th>
+            <th>Thuế (%)</th>
+            <th>Giá sau thuế</th>
+            <th>Giá bán đề xuất</th>
+            <th>Phân loại</th> <!-- Cột mới -->
+            <th>Thao tác</th>
+        </tr>
+    </thead>
+    <tbody id="stock-list">
+        <tr><td colspan="14" style="text-align: center;">Chưa có dữ liệu tồn kho</td></tr>
+    </tbody>
+</table>
+        </div>
     </div>
-    <div id="xuathang" class="tab-content">
-      <h3>Xuất hàng</h3>
-      <table id="exportTable">
-        <thead>
-          <tr>
-            <th>MSP</th><th>Tên hàng</th><th>Số lượng xuất</th><th>Đơn giá</th><th>Thành tiền</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div id="ketoan" class="tab-content">
-      <h3>Kế toán</h3>
-      <table id="accountTable">
-        <thead>
-          <tr>
-            <th>Loại</th><th>MST</th><th>Số tiền</th><th>Ngày</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div id="logOutput"></div>
-  </div>
 </div>
 
-<!-- Thư viện JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="zip-trichxuat.js"></script>
-<script src="hoadon.js"></script>
-<script src="tonkho.js"></script>
-<script src="xuathang.js"></script>
-<script src="ketoan.js"></script>
+        <div class="tab-content" id="xuat-hang">
+            <div class="content-header">
+                <h2>Quản Lý Xuất Hàng - <span id="company-name-xuathang"></span></h2>
+            </div>
+            <div class="content-body">
+                <div class="card">
+                    <div class="card-header">1. Tạo Phiếu Xuất Kho Mới</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="export-date">Ngày Xuất</label>
+                            <input type="date" id="export-date" value="">
+                        </div>
+                        <div class="form-group">
+                            <label for="export-note">Ghi Chú</label>
+                            <input type="text" id="export-note" placeholder="Xuất bán, xuất mẫu...">
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <h4>Chọn Sản Phẩm Cần Xuất</h4>
+                        <div id="export-products-list">
+                            <p style="text-align: center;">Vui lòng chọn công ty và đảm bảo có sản phẩm trong kho.</p>
+                        </div>
+                    </div>
 
-<script>
-// =======================
-// UI Log
-// =======================
-window.logAction = function(msg){
-  const log = document.getElementById('logOutput');
-  const time = new Date().toLocaleTimeString();
-  log.innerHTML += `[${time}] ${msg}<br>`;
-  log.scrollTop = log.scrollHeight;
-};
+                    <div class="card-footer">
+                        <p style="font-size: 1.1em; font-weight: bold;">Tổng Giá Trị Dự Kiến: <span id="current-export-total">0 VNĐ</span></p>
+                        <button id="create-export" class="btn-success">Lưu Phiếu Xuất Hàng</button>
+                    </div>
+                </div>
 
-// =======================
-// Tabs
-// =======================
-const tabs = document.querySelectorAll('button.tab');
-const contents = document.querySelectorAll('.tab-content');
-tabs.forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    contents.forEach(c=>c.style.display='none');
-    document.getElementById(btn.dataset.tab).style.display='block';
-    renderTables(); // Render dữ liệu mỗi khi đổi tab
-  });
-});
+                <div class="card">
+                    <div class="card-header">2. Lịch Sử Phiếu Xuất</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Mã Phiếu</th>
+                                <th>Ngày Xuất</th>
+                                <th>Ghi Chú</th>
+                                <th>Tổng Giá Trị</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="export-history-list">
+                            <tr><td colspan="5" style="text-align: center;">Chưa có phiếu xuất nào được tạo</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-// =======================
-// Nhập ZIP
-// =======================
-document.getElementById('zipInput').addEventListener('change', async (e)=>{
-  const files = Array.from(e.target.files);
-  if(files.length>0){
-    logAction('Đang xử lý ZIP...');
-    await handleZipFiles(files);
-    updateCompanyList();
-    renderTables();
-  }
-});
+        <div class="tab-content" id="ke-toan">
+            <div class="content-header">
+                <h2>Kế Toán & Báo Cáo Tổng Quan - <span id="company-name-ke-toan"></span></h2>
+            </div>
+            <div class="content-body">
+                
+                <div class="card">
+                    <div class="card-header">1. Thống Kê Tổng Quan</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <h4>Tổng Số HĐ Nhập</h4>
+                            <div id="total-invoices" class="stat-value">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <h4>Tổng Giá Trị HĐ Nhập</h4>
+                            <div id="total-invoice-value" class="stat-value">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <h4>Tổng Số Sản Phẩm Tồn</h4>
+                            <div id="total-products" class="stat-value">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <h4>Tổng Giá Trị Tồn Kho</h4>
+                            <div id="total-stock-value" class="stat-value">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">2. Báo Cáo Theo Tháng</div>
+                    <div class="form-group">
+                        <label for="report-month">Chọn Tháng</label>
+                        <input type="month" id="report-month" value="">
+                    </div>
+                    <button id="generate-report" class="btn-primary">Tạo Báo Cáo Doanh Thu/Giá Vốn</button>
+                    
+                    <div id="monthly-report" class="hidden report-container">
+                        <h4 style="margin-top: 15px;">BÁO CÁO THÁNG <span id="report-month-display"></span></h4>
+                        <table class="table report-table">
+                            <thead>
+                                <tr>
+                                    <th>Chỉ Tiêu</th>
+                                    <th>Giá Trị</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-data">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-// =======================
-// Danh sách công ty
-// =======================
-function updateCompanyList(){
-  const listDiv = document.getElementById('companyList');
-  listDiv.innerHTML = '';
-  Object.keys(hkdData).forEach(mst=>{
-    const div = document.createElement('div');
-    div.textContent = mst;
-    listDiv.appendChild(div);
-  });
-}
+    </div>
 
-// =======================
-// Render các bảng
-// =======================
-function renderTables(){
-  // Hoá đơn
-  const invoiceTbody = document.querySelector('#invoiceTable tbody');
-  invoiceTbody.innerHTML='';
-  Object.keys(hkdData).forEach(mst=>{
-    hkdData[mst].invoices.forEach((inv,idx)=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${idx+1}</td><td>${mst}</td><td>${inv.uniqueKey}</td><td>${inv.invoiceInfo.date}</td><td>${inv.status.validation}</td><td>${inv.totals.total.toLocaleString()}</td>`;
-      invoiceTbody.appendChild(tr);
-    });
-  });
-
-  // Tồn kho
-  const stockTbody = document.querySelector('#stockTable tbody');
-  stockTbody.innerHTML='';
-  Object.keys(hkdData).forEach(mst=>{
-    hkdData[mst].tonkhoMain.forEach(item=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${item.msp}</td><td>${item.name}</td><td>${item.unit}</td><td>${item.quantity}</td><td>${item.price.toLocaleString()}</td><td>${item.amount.toLocaleString()}</td>`;
-      stockTbody.appendChild(tr);
-    });
-  });
-
-  // Xuất hàng và Kế toán có thể render tương tự khi logic riêng được tích hợp
-}
-</script>
-
+    <script src="zip-trichxuat.js"></script>
+    <script src="hoadon.js"></script>
+    <script src="tonkho.js"></script>
+    <script src="xuathang.js"></script>
+    <script src="ketoan.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

@@ -1,5 +1,3 @@
-// File: tonkho.js (Đã chuẩn hóa)
-
 // Module quản lý tồn kho
 
 // Khởi tạo module: Thiết lập các listeners
@@ -135,7 +133,7 @@ function renderStock(searchTerm = '', filterType = 'all') {
         if (currentQuantity === 0 && product.category !== 'chiet_khau') return; 
 
         // ====================================================================
-        // ✅ LOGIC LỌC: Dựa vào trường 'category'
+        // ✅ LOGIC LỌC ĐÃ CHUẨN HÓA: Dựa vào trường 'category'
         // ====================================================================
         const productCategory = product.category || 'hang_hoa'; // Fallback an toàn
 
