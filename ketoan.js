@@ -1,36 +1,22 @@
-// ketoan.js
-function ketoan_render(){
-  const container=document.getElementById('ketoanTab');
-  container.innerHTML='';
-  const taxCodes=Object.keys(hkdData);
-  if(taxCodes.length===0){container.innerHTML='<p>Chưa có dữ liệu kế toán.</p>';return;}
-
-  taxCodes.forEach(tc=>{
-    const company=hkdData[tc];
-    const div=document.createElement('div');
-    div.innerHTML=`<h3>Kế toán công ty MST: ${tc}</h3>`;
-    const table=document.createElement('table');
-    const ths=['STT','HĐ','Ngày','Tổng trước thuế','Thuế','Tổng cộng'];
-    table.innerHTML='<thead><tr>'+ths.map(t=>`<th>${t}</th>`).join('')+'</tr></thead>';
-    const tbody=document.createElement('tbody');
-    let stt=0;
-
-    company.invoices.forEach(inv=>{
-      stt++;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td>${stt}</td>
-        <td>${inv.invoiceInfo.number}</td>
-        <td>${inv.invoiceInfo.date}</td>
-        <td>${inv.totals.beforeTax}</td>
-        <td>${inv.totals.tax}</td>
-        <td>${inv.totals.total}</td>
-      `;
-      tbody.appendChild(tr);
+function renderKeToan(){
+  const container = document.getElementById('ketoan');
+  container.innerHTML = '';
+  for(const tax in hkdData){
+    const comp = hkdData[tax];
+    const table = document.createElement('table');
+    table.className = 'table table-bordered table-sm';
+    const header = document.createElement('tr');
+    header.innerHTML = '<th>STT</th><th>Mã HĐ</th><th>Ngày</th><th>Tổng trước thuế</th><th>Chiết khấu</th><th>Thuế</th><th>Tổng cộng</th>';
+    table.appendChild(header);
+    comp.accountingEntries.forEach((entry,i)=>{
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${i+1}</td><td>${entry.invoice}</td><td>${entry.date}</td>
+      <td>${entry.totalBeforeTax.toLocaleString()}</td><td>${entry.discount.toLocaleString()}</td>
+      <td>${entry.tax.toLocaleString()}</td><td>${entry.total.toLocaleString()}</td>`;
+      table.appendChild(row);
     });
-
-    table.appendChild(tbody);
-    div.appendChild(table);
-    container.appendChild(div);
-  });
+    const title = document.createElement('h5'); title.textContent = `Kế toán công ty: ${tax}`;
+    container.appendChild(title);
+    container.appendChild(table);
+  }
 }
