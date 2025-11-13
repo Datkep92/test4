@@ -2,52 +2,46 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>HKD Invoice Management</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý Hóa đơn & Kho</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 <style>
-body{font-family:Arial;margin:0;padding:0;}
-header{background:#0078D7;color:white;padding:10px;font-size:20px;}
-nav{display:flex;background:#f0f0f0;}
-nav button{flex:1;padding:10px;border:none;background:#f0f0f0;cursor:pointer;}
-nav button.active{background:#0078D7;color:white;}
-section.tab-content{display:none;padding:10px;}
-section.tab-content.active{display:block;}
-table{border-collapse:collapse;width:100%;margin-top:10px;}
-th,td{border:1px solid #ccc;padding:5px;text-align:left;}
-#log{height:150px;overflow:auto;border:1px solid #ccc;margin-top:10px;padding:5px;background:#f9f9f9;}
+body{padding:15px;}
+#logOutput{height:150px; overflow-y:auto; background:#f8f9fa; padding:10px; border:1px solid #ccc;}
+.tab-content{margin-top:15px;}
 </style>
 </head>
 <body>
-<header>HKD Invoice Management</header>
 
-<input type="file" id="zipInput" multiple accept=".zip">
-<div id="log"></div>
+<h3>Quản lý Hóa đơn & Kho</h3>
+<div class="mb-3">
+  <input type="file" id="zipInput" multiple accept=".zip" class="form-control"/>
+</div>
 
-<nav>
-  <button class="tab-btn active" data-tab="hoadon">Hóa đơn</button>
-  <button class="tab-btn" data-tab="tonkho">Kho</button>
-  <button class="tab-btn" data-tab="xuathang">Xuất hàng</button>
-  <button class="tab-btn" data-tab="ketoan">Kế toán</button>
-</nav>
+<ul class="nav nav-tabs" id="mainTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="hoadon-tab" data-bs-toggle="tab" data-bs-target="#hoadon" type="button">Hóa đơn</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tonkho-tab" data-bs-toggle="tab" data-bs-target="#tonkho" type="button">Kho</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="xuathang-tab" data-bs-toggle="tab" data-bs-target="#xuathang" type="button">Xuất hàng</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="ketoan-tab" data-bs-toggle="tab" data-bs-target="#ketoan" type="button">Kế toán</button>
+  </li>
+</ul>
 
-<section id="hoadon" class="tab-content active">
-  <h2>Danh sách hóa đơn</h2>
-  <div id="hoadonTable"></div>
-</section>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="hoadon"></div>
+  <div class="tab-pane fade" id="tonkho"></div>
+  <div class="tab-pane fade" id="xuathang"></div>
+  <div class="tab-pane fade" id="ketoan"></div>
+</div>
 
-<section id="tonkho" class="tab-content">
-  <h2>Chi tiết tồn kho</h2>
-  <div id="tonkhoTable"></div>
-</section>
-
-<section id="xuathang" class="tab-content">
-  <h2>Xuất hàng</h2>
-  <div id="xuathangTable"></div>
-</section>
-
-<section id="ketoan" class="tab-content">
-  <h2>Kế toán</h2>
-  <div id="ketoanTable"></div>
-</section>
+<h5>Log</h5>
+<div id="logOutput"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="zip-trichxuat.js"></script>
@@ -55,26 +49,18 @@ th,td{border:1px solid #ccc;padding:5px;text-align:left;}
 <script src="tonkho.js"></script>
 <script src="xuathang.js"></script>
 <script src="ketoan.js"></script>
-<script>
-const tabs = document.querySelectorAll('.tab-btn');
-tabs.forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    tabs.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(sec=>sec.classList.remove('active'));
-    document.getElementById(btn.dataset.tab).classList.add('active');
-  });
-});
 
-// Tự động xử lý khi chọn file ZIP
+<script>
 document.getElementById('zipInput').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files);
-  if(files.length) await handleZipFiles(files);
-  if(window.renderHoadon) window.renderHoadon();
-  if(window.renderTonkho) window.renderTonkho();
-  if(window.renderXuatHang) window.renderXuatHang();
-  if(window.renderKeToan) window.renderKeToan();
+  if(files.length>0) window.handleZipFiles(files).then(()=>{
+    renderHoadon();
+    renderTonkho();
+    renderXuatHang();
+    renderKeToan();
+  });
 });
 </script>
+
 </body>
 </html>
