@@ -2,240 +2,65 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Quản lý HKD</title>
+<title>Quản lý hóa đơn</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; display: flex; height: 100vh; }
-  #sidebar { width: 220px; background: #f4f4f4; padding: 10px; border-right: 1px solid #ccc; overflow-y: auto; }
-  #sidebar h3 { margin-top: 0; font-size: 1.1em; text-align: center; }
-  #sidebar ul { list-style: none; padding: 0; }
-  #sidebar li { padding: 8px 10px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; }
-  #sidebar li:hover, #sidebar li.active { background: #1976d2; color: white; }
-  
-  #main { flex: 1; display: flex; flex-direction: column; }
-  #topbar { padding: 10px; border-bottom: 1px solid #ccc; background: #f9f9f9; }
-  #tabs { display: flex; border-bottom: 1px solid #ccc; background: #f9f9f9; }
-  #tabs button { flex: 1; padding: 12px; cursor: pointer; border: none; background: #eee; font-weight: bold; }
-  #tabs button.active { background: #1976d2; color: white; }
-  #content { flex: 1; overflow: auto; padding: 15px; }
-  
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9em; }
-  th { background: #1976d2; color: white; }
-  tfoot td { font-weight: bold; background: #f0f0f0; }
+  body{font-family:Arial,sans-serif;margin:0;padding:0;}
+  #sidebar{width:200px;float:left;background:#f0f0f0;height:100vh;overflow:auto;padding:10px;}
+  #main{margin-left:210px;padding:10px;}
+  .log-box{border:1px solid #ccc;height:200px;overflow:auto;padding:5px;background:#fff;margin-top:10px;font-size:0.9em;}
+  button{margin:5px 0;padding:8px 12px;font-size:0.9em;}
+  .company-item{padding:5px;cursor:pointer;border-bottom:1px solid #ddd;}
+  .company-item:hover{background:#e0e0ff;}
 </style>
 </head>
 <body>
 
 <div id="sidebar">
   <h3>Danh sách công ty</h3>
-  <ul id="companyList"></ul>
+  <div id="companyList"></div>
+  <hr>
+  <input type="file" id="zipInput" multiple accept=".zip">
+  <div id="statusMsg"></div>
 </div>
 
 <div id="main">
-  <div id="topbar">
-    <input type="file" id="zipInput" multiple accept=".zip">
-    <button onclick="importZips()">Nhập ZIP</button>
-    <span id="statusMsg"></span>
-  </div>
-  <div id="tabs">
-    <button data-tab="invoices" class="active">Hóa đơn DV</button>
-    <button data-tab="stock">Kho</button>
-    <button data-tab="export">Xuất hàng</button>
-    <button data-tab="accounting">Kế toán</button>
-  </div>
-  <div id="content"></div>
+  <h3>Log xử lý</h3>
+  <div class="log-box" id="logBox"></div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="handleZip.js"></script>
 <script>
-// =======================
-// Dữ liệu HKD
-// =======================
-window.hkdData = window.hkdData || {};
-let selectedTaxCode = null;
+  const logBox = document.getElementById('logBox');
+  function uiLog(msg){
+    const p = document.createElement('div');
+    p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logBox.appendChild(p);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
 
-// =======================
-// Sidebar
-// =======================
-function renderCompanyList() {
-  const ul = document.getElementById('companyList');
-  ul.innerHTML = '';
-  Object.keys(hkdData).forEach((taxCode,index) => {
-    const li = document.createElement('li');
-    li.textContent = `${hkdData[taxCode].name} (${taxCode})`;
-    li.onclick = () => { selectCompany(taxCode); };
-    if(taxCode === selectedTaxCode) li.classList.add('active');
-    ul.appendChild(li);
+  window.logAction = uiLog; // ghi log từ JS gốc vào UI
+
+  function renderCompanyList(){
+    const listDiv = document.getElementById('companyList');
+    listDiv.innerHTML='';
+    for(const taxCode in hkdData){
+      const div = document.createElement('div');
+      div.textContent = `${hkdData[taxCode].name} (${taxCode})`;
+      div.className='company-item';
+      listDiv.appendChild(div);
+    }
+  }
+
+  // === Tự động xử lý ZIP khi chọn file ===
+  document.getElementById('zipInput').addEventListener('change', async (e)=>{
+    const files = e.target.files;
+    if(!files.length) return;
+    document.getElementById('statusMsg').textContent = 'Đang xử lý...';
+    await window.handleZipFiles(files);
+    document.getElementById('statusMsg').textContent = `Đã nhập ${files.length} file.`;
+    renderCompanyList();
   });
-}
-
-function selectCompany(taxCode) {
-  selectedTaxCode = taxCode;
-  document.querySelectorAll('#sidebar li').forEach(li => li.classList.remove('active'));
-  document.querySelector(`#sidebar li:nth-child(${Object.keys(hkdData).indexOf(taxCode)+1})`).classList.add('active');
-  renderTab(currentTab);
-}
-
-// =======================
-// Tab
-// =======================
-let currentTab = 'invoices';
-document.querySelectorAll('#tabs button').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentTab = btn.dataset.tab;
-    renderTab(currentTab);
-  };
-});
-
-// =======================
-// Render tab content
-// =======================
-function renderTab(tab) {
-  const content = document.getElementById('content');
-  content.innerHTML = '';
-  if(!selectedTaxCode) return;
-  const hkd = hkdData[selectedTaxCode];
-  if(tab === 'invoices') renderInvoices(hkd, content);
-  else if(tab === 'stock') renderStock(hkd, content);
-  else if(tab === 'export') renderExports(hkd, content);
-  else if(tab === 'accounting') renderAccounting(hkd, content);
-}
-
-// =======================
-// Hiển thị bảng Hóa đơn
-// =======================
-function renderInvoices(hkd, container) {
-  if(!hkd.invoices || hkd.invoices.length===0) { container.innerHTML='<p>Chưa có hóa đơn.</p>'; return; }
-  hkd.invoices.forEach(inv => {
-    const table = document.createElement('table');
-    let html = '<thead><tr>';
-    html += '<th>STT</th><th>MSP</th><th>Tên SP</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Chiết khấu</th><th>Thành tiền</th><th>Thuế</th></tr></thead><tbody>';
-    inv.products.forEach((p,i)=>{
-      html += `<tr>
-        <td>${i+1}</td>
-        <td>${p.msp}</td>
-        <td>${p.name}</td>
-        <td>${p.unit}</td>
-        <td>${p.quantity}</td>
-        <td>${p.price}</td>
-        <td>${p.discount}</td>
-        <td>${p.amount}</td>
-        <td>${(p.amount*p.taxRate/100).toFixed(0)}</td>
-      </tr>`;
-    });
-    html += `<tfoot><tr>
-      <td colspan="4">Tổng</td>
-      <td>${inv.products.reduce((s,p)=>s+p.quantity,0)}</td>
-      <td></td>
-      <td>${inv.products.reduce((s,p)=>s+p.discount,0)}</td>
-      <td>${inv.products.reduce((s,p)=>s+p.amount,0)}</td>
-      <td>${Math.round(inv.products.reduce((s,p)=>s+(p.amount*p.taxRate/100),0))}</td>
-    </tr></tfoot>`;
-    html += '</tbody>';
-    table.innerHTML = html;
-    container.appendChild(table);
-  });
-}
-
-// =======================
-// Kho
-// =======================
-function renderStock(hkd, container) {
-  if(!hkd.tonkhoMain || hkd.tonkhoMain.length===0) { container.innerHTML='<p>Chưa có tồn kho.</p>'; return; }
-  const table = document.createElement('table');
-  let html = '<thead><tr>';
-  html += '<th>STT</th><th>MSP</th><th>Tên SP</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>';
-  hkd.tonkhoMain.forEach((p,i)=>{
-    html += `<tr>
-      <td>${i+1}</td>
-      <td>${p.msp}</td>
-      <td>${p.name}</td>
-      <td>${p.unit}</td>
-      <td>${p.quantity}</td>
-      <td>${p.price}</td>
-      <td>${p.amount}</td>
-    </tr>`;
-  });
-  html += `<tfoot><tr>
-    <td colspan="4">Tổng</td>
-    <td>${hkd.tonkhoMain.reduce((s,p)=>s+p.quantity,0)}</td>
-    <td></td>
-    <td>${hkd.tonkhoMain.reduce((s,p)=>s+p.amount,0)}</td>
-  </tr></tfoot>`;
-  html += '</tbody>';
-  table.innerHTML = html;
-  container.appendChild(table);
-}
-
-// =======================
-// Xuất hàng
-// =======================
-function renderExports(hkd, container) {
-  if(!hkd.exports || hkd.exports.length===0) { container.innerHTML='<p>Chưa có xuất hàng.</p>'; return; }
-  hkd.exports.forEach(exp=>{
-    const table = document.createElement('table');
-    let html = '<thead><tr>';
-    html += '<th>STT</th><th>MSP</th><th>Tên SP</th><th>ĐVT</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>';
-    exp.items.forEach((p,i)=>{
-      html += `<tr>
-        <td>${i+1}</td>
-        <td>${p.msp}</td>
-        <td>${p.name}</td>
-        <td>${p.unit}</td>
-        <td>${p.qty}</td>
-        <td>${p.price}</td>
-        <td>${(p.qty*p.price).toFixed(0)}</td>
-      </tr>`;
-    });
-    html += `<tfoot><tr>
-      <td colspan="4">Tổng</td>
-      <td>${exp.items.reduce((s,p)=>s+p.qty,0)}</td>
-      <td></td>
-      <td>${exp.items.reduce((s,p)=>s+p.qty*p.price,0)}</td>
-    </tr></tfoot>`;
-    html += '</tbody>';
-    table.innerHTML = html;
-    container.appendChild(table);
-  });
-}
-
-// =======================
-// Kế toán
-// =======================
-function renderAccounting(hkd, container) {
-  let totalIn = hkd.invoices.reduce((s,inv)=>s+inv.totals.total,0);
-  let totalOut = hkd.exports.reduce((s,exp)=>s+exp.items.reduce((ss,p)=>ss+p.qty*p.price,0),0);
-  const div = document.createElement('div');
-  div.innerHTML = `<h3>Kế toán tổng quan</h3>
-    <p>Tổng nhập: ${totalIn}</p>
-    <p>Tổng xuất: ${totalOut}</p>
-    <p>Chênh lệch tồn: ${totalIn-totalOut}</p>`;
-  container.appendChild(div);
-}
-
-// =======================
-// Nhập ZIP
-// =======================
-async function importZips() {
-  const input = document.getElementById('zipInput');
-  const files = input.files;
-  if(!files.length) return alert('Chọn file ZIP trước!');
-  document.getElementById('statusMsg').textContent = 'Đang xử lý...';
-  await window.handleZipFiles(files);
-  document.getElementById('statusMsg').textContent = `Đã nhập ${files.length} file.`;
-  renderCompanyList();
-  if(selectedTaxCode) renderTab(currentTab);
-}
-
-// =======================
-// Init
-// =======================
-renderCompanyList();
 </script>
-
-<!-- Nhúng file JS xử lý ZIP + XML từ mã trước -->
-<script src="script.js"></script> 
-
 </body>
 </html>
