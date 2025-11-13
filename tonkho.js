@@ -1,43 +1,24 @@
-// tonkho.js
-function tonkho_render(){
-  const container=document.getElementById('tonkhoTab');
+window.renderTonkho = function(){
+  const container = document.getElementById('tonkhoTable');
   container.innerHTML='';
-  const taxCodes=Object.keys(hkdData);
-  if(taxCodes.length===0){container.innerHTML='<p>Chưa có dữ liệu kho.</p>';return;}
-
-  taxCodes.forEach(tc=>{
-    const company=hkdData[tc];
-    const div=document.createElement('div');
-    div.innerHTML=`<h3>Tồn kho công ty MST: ${tc}</h3>`;
-    const table=document.createElement('table');
-    const ths=['STT','MSP','Mã SP','Tên','Đơn vị','SL tồn','Giá','Thành tiền'];
-    table.innerHTML='<thead><tr>'+ths.map(t=>`<th>${t}</th>`).join('')+'</tr></thead>';
-    const tbody=document.createElement('tbody');
-    let stt=0,totalQty=0,totalAmount=0;
-
-    company.tonkhoMain.forEach(item=>{
-      stt++;
-      totalQty+=item.quantity;
-      totalAmount+=item.amount;
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td>${stt}</td>
+  for(const taxCode in hkdData){
+    const hkd = hkdData[taxCode];
+    const tbl = document.createElement('table');
+    const header = `<tr>
+      <th>STT</th><th>Mã SP</th><th>Tên</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>
+    </tr>`;
+    tbl.innerHTML = header + hkd.tonkhoMain.map((item,idx)=>`
+      <tr>
+        <td>${idx+1}</td>
         <td>${item.msp}</td>
-        <td>${item.code}</td>
         <td>${item.name}</td>
         <td>${item.unit}</td>
         <td>${item.quantity}</td>
         <td>${item.price}</td>
         <td>${item.amount}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    const trTotal=document.createElement('tr');
-    trTotal.innerHTML=`<td colspan="5">Tổng</td><td>${totalQty}</td><td></td><td>${totalAmount}</td>`;
-    tbody.appendChild(trTotal);
-    table.appendChild(tbody);
-    div.appendChild(table);
-    container.appendChild(div);
-  });
-}
+      </tr>
+    `).join('');
+    container.appendChild(document.createElement('h3')).innerText = `Công ty MST: ${taxCode}`;
+    container.appendChild(tbl);
+  }
+};
