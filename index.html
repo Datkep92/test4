@@ -1,260 +1,136 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quản lý HKD - ZIP/XML</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 10px; }
-    #logBox { border:1px solid #ccc; height:200px; overflow-y:auto; padding:5px; background:#f9f9f9; margin-top:10px; }
-    #companyList { border:1px solid #ccc; padding:5px; margin-top:10px; background:#eef; }
-    .company-item { padding:2px 4px; border-bottom:1px solid #ddd; cursor:pointer; }
-    .tab { display:inline-block; margin-right:10px; padding:6px 12px; background:#1976d2; color:white; border-radius:4px; cursor:pointer; }
-    .tab:hover { background:#115293; }
-    #tabContent { margin-top:10px; }
-    table { border-collapse: collapse; width:100%; margin-top:5px; }
-    th, td { border:1px solid #ccc; padding:4px; text-align:left; font-size:12px; }
-    th { background:#1976d2; color:white; }
-    .total-row { font-weight:bold; background:#f0f0f0; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý Hoá đơn & Kho</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; display:flex; height:100vh; }
+#sidebar { width:200px; background:#f0f0f0; padding:10px; overflow-y:auto; border-right:1px solid #ccc; }
+#main { flex:1; padding:10px; display:flex; flex-direction:column; }
+#tabs { display:flex; margin-bottom:10px; }
+.tab { padding:10px 15px; cursor:pointer; border:1px solid #ccc; border-bottom:none; background:#eee; margin-right:5px; }
+.tab.active { background:#fff; font-weight:bold; }
+.tab-content { flex:1; border:1px solid #ccc; padding:10px; overflow:auto; }
+#logDiv { height:150px; overflow:auto; border:1px solid #ccc; padding:5px; margin-top:10px; background:#fafafa; font-size:12px; }
+</style>
 </head>
 <body>
-  <h2>Quản lý HKD - Nhập ZIP/XML</h2>
 
-  <!-- Input chọn file -->
-  <input type="file" id="zipInput" multiple accept=".zip" />
-  <div id="statusMsg" style="margin-top:8px; color:#1976d2;">Chọn file ZIP để xử lý.</div>
-
-  <!-- Tabs -->
-  <div style="margin-top:15px;">
-    <span class="tab" data-tab="hoadon">Hóa đơn DV</span>
-    <span class="tab" data-tab="tonkho">Kho</span>
-    <span class="tab" data-tab="xuathang">Xuất hàng</span>
-    <span class="tab" data-tab="ketoan">Kế toán</span>
-  </div>
-
-  <!-- Danh sách công ty -->
+<div id="sidebar">
   <h3>Danh sách công ty</h3>
-  <div id="companyList"></div>
+  <ul id="companyList"></ul>
+  <hr>
+  <input type="file" id="zipInput" multiple accept=".zip">
+  <div id="logDiv"></div>
+</div>
 
-  <!-- Nội dung tab -->
-  <div id="tabContent"></div>
+<div id="main">
+  <div id="tabs">
+    <div class="tab active" data-tab="hoadon">Hoá đơn DV</div>
+    <div class="tab" data-tab="tonkho">Kho</div>
+    <div class="tab" data-tab="xuathang">Xuất hàng</div>
+    <div class="tab" data-tab="ketoan">Kế toán</div>
+  </div>
+  <div id="tabContents">
+    <div id="hoadon" class="tab-content"></div>
+    <div id="tonkho" class="tab-content" style="display:none;"></div>
+    <div id="xuathang" class="tab-content" style="display:none;"></div>
+    <div id="ketoan" class="tab-content" style="display:none;"></div>
+  </div>
+</div>
 
-  <!-- Log -->
-  <h3>Log xử lý</h3>
-  <div id="logBox"></div>
+<!-- Thư viện JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+<script src="zip-trichxuat.js"></script>
+<script src="hoadon.js"></script>
+<script src="tonkho.js"></script>
+<script src="xuathang.js"></script>
+<script src="ketoan.js"></script>
 
-  <!-- Thư viện JSZip -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// Log UI
+window.logAction=function(msg){
+  const logDiv=document.getElementById('logDiv');
+  const p=document.createElement('div'); p.textContent=msg; logDiv.appendChild(p);
+  logDiv.scrollTop=logDiv.scrollHeight;
+};
 
-  <script>
-  // =======================
-  // Biến lưu trữ dữ liệu toàn cục
-  // =======================
-  window.hkdData = {};
+// Chuyển tab
+const tabs=document.querySelectorAll('.tab');
+tabs.forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const name=tab.dataset.tab;
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById(name).style.display='block';
+  });
+});
 
-  function uiLog(msg){
-    const logBox = document.getElementById('logBox');
-    const p = document.createElement('div');
-    p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    logBox.appendChild(p);
-    logBox.scrollTop = logBox.scrollHeight;
+// Render danh sách công ty
+function renderCompanyList(){
+  const ul=document.getElementById('companyList');
+  ul.innerHTML='';
+  for(const taxCode in hkdData){
+    const li=document.createElement('li'); li.textContent=taxCode;
+    li.style.cursor='pointer';
+    li.addEventListener('click',()=>{ renderInvoices(taxCode); renderStock(taxCode); });
+    ul.appendChild(li);
   }
+}
 
-  function ensureHkdData(taxCode){
-    if(!hkdData[taxCode]){
-      hkdData[taxCode] = {
-        name: taxCode,
-        invoices: [],
-        tonkhoMain: [],
-        exports: []
-      };
-    }
-  }
+// Input ZIP
+document.getElementById('zipInput').addEventListener('change',async (e)=>{
+  const files=e.target.files;
+  if(files.length===0) return;
+  await handleZipFiles(files);
+  renderCompanyList();
+});
 
-  function generateMSP(code, idx, category){
-    let msp = code || `MSP${String(idx+1).padStart(5,'0')}`;
-    if(category==='chiet_khau') msp += '_CK';
-    if(category==='KM') msp += '_KM';
-    return msp;
-  }
-
-  function parseXmlInvoice(xmlContent){
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent,"text/xml");
-    const getText = (sel,p=xmlDoc)=>{const n=p.querySelector(sel); return n?n.textContent.trim():'';};
-
-    const invoiceInfo = {
-      title: getText('HDon > DLHDon > TTChung > THDon'),
-      symbol: getText('HDon > DLHDon > TTChung > KHMSHDon'),
-      number: getText('HDon > DLHDon > TTChung > SHDon'),
-      date: getText('HDon > DLHDon > TTChung > NLap'),
-      mccqt: getText('HDon > MCCQT')?.toUpperCase()||''
-    };
-    const sellerInfo = {
-      name: getText('HDon > DLHDon > NDHDon > NBan > Ten'),
-      taxCode: getText('HDon > DLHDon > NDHDon > NBan > MST')
-    };
-    const buyerInfo = {
-      name: getText('HDon > DLHDon > NDHDon > NMua > Ten'),
-      taxCode: getText('HDon > DLHDon > NDHDon > NMua > MST')
-    };
-
-    const products=[];
-    const productNodes=xmlDoc.querySelectorAll('HHDVu');
-    productNodes.forEach((node,idx)=>{
-      const tchat=parseInt(getText('TChat',node)||'1');
-      const name=getText('THHDVu',node)||'';
-      const code=getText('MaSP',node)||'';
-      const unit=getText('DVTinh',node)||'';
-      const quantity=parseFloat(getText('SLuong',node)||'0');
-      const price=parseFloat(getText('DGia',node)||'0');
-      const discount=parseFloat(getText('CKhau',node)||'0');
-      const xmlAmount=parseFloat(getText('ThTien',node)||'0');
-      let taxRate=0; const rawTax=getText('TSuat',node).replace('%','').trim(); 
-      if(!isNaN(parseFloat(rawTax))) taxRate=parseFloat(rawTax);
-      let category='hang_hoa'; 
-      const lower=name.toLowerCase(); 
-      const isCK=lower.includes('chiết khấu')||lower.includes('ck'); 
-      if(quantity===0 && price===0) category='KM'; 
-      else if(tchat===3 && isCK) category='chiet_khau';
-      const msp=generateMSP(code,idx,category);
-      const amount=quantity*price-discount;
-      products.push({stt:idx+1,msp,code,name,unit,quantity,price,discount,amount,taxRate,category,xmlAmount});
-    });
-
-    const totals={
-      beforeTax:products.reduce((s,p)=>s+p.amount,0),
-      tax:Math.round(products.reduce((s,p)=>s+(p.amount*p.taxRate/100),0))
-    };
-    totals.total=totals.beforeTax+totals.tax;
-
-    return {invoiceInfo,sellerInfo,buyerInfo,products,totals};
-  }
-
-  function isDuplicate(invoice,taxCode){
-    ensureHkdData(taxCode);
-    const key = `${invoice.invoiceInfo.symbol}_${invoice.invoiceInfo.number}`;
-    return hkdData[taxCode].invoices.some(inv=>inv.uniqueKey===key);
-  }
-
-  function updateStock(taxCode,invoice){
-    ensureHkdData(taxCode);
-    const hkd = hkdData[taxCode];
-    invoice.products.forEach(item=>{
-      if(item.category!=='hang_hoa') return;
-      let stockItem = hkd.tonkhoMain.find(p=>p.msp===item.msp);
-      if(stockItem){
-        stockItem.quantity += item.quantity;
-        stockItem.amount += item.amount;
-      } else {
-        hkd.tonkhoMain.push({msp:item.msp,code:item.code,name:item.name,unit:item.unit,quantity:item.quantity,price:item.price,amount:item.amount});
-      }
-    });
-  }
-
-  async function extractInvoiceFromZip(file){
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const xmlFileName = Object.keys(zip.files).find(f=>f.toLowerCase().endsWith('.xml'));
-      if(!xmlFileName) return null;
-      const xmlContent = await zip.file(xmlFileName).async("string");
-      return parseXmlInvoice(xmlContent);
-    } catch(e){ uiLog('Lỗi giải nén ZIP: '+e.message); return null; }
-  }
-
-  async function handleZipFiles(files){
-    for(const file of files){
-      if(!file.name.toLowerCase().endsWith('.zip')) continue;
-      uiLog(`Đang xử lý: ${file.name}`);
-      const invoice = await extractInvoiceFromZip(file);
-      if(!invoice || !invoice.products.length){ uiLog('Bỏ qua file trống hoặc lỗi XML: '+file.name); continue;}
-      const taxCode = invoice.buyerInfo.taxCode || 'UNKNOWN';
-      ensureHkdData(taxCode);
-      const uniqueKey = `${invoice.invoiceInfo.symbol}_${invoice.invoiceInfo.number}`;
-      if(isDuplicate(invoice,taxCode)){ uiLog('Trùng HĐ, bỏ qua: '+uniqueKey); continue; }
-      const computedTotal = invoice.products.reduce((s,p)=>s+p.amount,0) + Math.round(invoice.products.reduce((s,p)=>s+(p.amount*p.taxRate/100),0));
-      const totalDiff = Math.abs(computedTotal - invoice.totals.total);
-      invoice.status = { validation: totalDiff<=1?'ok':'error', stockPosted: totalDiff<=1 };
-      invoice.uniqueKey = uniqueKey;
-      invoice.extractedAt = new Date().toISOString();
-      hkdData[taxCode].invoices.push(invoice);
-      if(invoice.status.stockPosted) updateStock(taxCode,invoice);
-      uiLog(`[NHẬP HĐ] MST=${taxCode}, HĐ=${uniqueKey}, trạng thái=${invoice.status.validation}`);
-    }
-    renderCompanyList();
-  }
-
-  function renderCompanyList(){
-    const listDiv = document.getElementById('companyList');
-    listDiv.innerHTML='';
-    for(const taxCode in hkdData){
-      const div = document.createElement('div');
-      div.textContent = `${hkdData[taxCode].name} (${taxCode})`;
-      div.className='company-item';
-      div.onclick = ()=>renderTabContent('hoadon', taxCode);
-      listDiv.appendChild(div);
-    }
-  }
-
-  function renderTabContent(tab, taxCode){
-    const tabDiv = document.getElementById('tabContent');
-    tabDiv.innerHTML='';
-    if(!hkdData[taxCode]) return;
-    const data = hkdData[taxCode];
-    if(tab==='hoadon'){
-      const table = document.createElement('table');
-      const th = document.createElement('tr');
-      th.innerHTML = `<th>STT</th><th>Số HĐ</th><th>Ngày</th><th>Người bán</th><th>Người mua</th><th>Trạng thái</th>`;
-      table.appendChild(th);
-      data.invoices.forEach((inv,idx)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${idx+1}</td><td>${inv.invoiceInfo.symbol}_${inv.invoiceInfo.number}</td><td>${inv.invoiceInfo.date}</td><td>${inv.sellerInfo.name}</td><td>${inv.buyerInfo.name}</td><td>${inv.status.validation}</td>`;
-        table.appendChild(tr);
-      });
-      tabDiv.appendChild(table);
-    } else if(tab==='tonkho'){
-      const table = document.createElement('table');
-      const th = document.createElement('tr');
-      th.innerHTML = `<th>MSP</th><th>Mã SP</th><th>Tên SP</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>`;
-      table.appendChild(th);
-      let totalQty=0, totalAmount=0;
-      data.tonkhoMain.forEach(p=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${p.msp}</td><td>${p.code}</td><td>${p.name}</td><td>${p.unit}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.amount}</td>`;
-        table.appendChild(tr);
-        totalQty += p.quantity; totalAmount += p.amount;
-      });
-      const trTotal = document.createElement('tr');
-      trTotal.className='total-row';
-      trTotal.innerHTML = `<td colspan="4">Tổng</td><td>${totalQty}</td><td></td><td>${totalAmount}</td>`;
-      table.appendChild(trTotal);
-      tabDiv.appendChild(table);
-    } else if(tab==='xuathang'){
-      tabDiv.textContent = 'Chức năng Xuất hàng đang chờ phát triển.';
-    } else if(tab==='ketoan'){
-      tabDiv.textContent = 'Chức năng Kế toán đang chờ phát triển.';
-    }
-  }
-
-  // Bấm tab
-  document.querySelectorAll('.tab').forEach(el=>{
-    el.addEventListener('click', ()=> {
-      const tab = el.dataset.tab;
-      const firstCompany = Object.keys(hkdData)[0];
-      if(firstCompany) renderTabContent(tab, firstCompany);
+// Render hóa đơn
+function renderInvoices(taxCode){
+  if(!hkdData[taxCode]) return;
+  const container=document.getElementById('hoadon');
+  container.innerHTML='';
+  const table=document.createElement('table'); table.border=1; table.cellPadding=3; table.style.width='100%';
+  const thead=document.createElement('thead'); 
+  thead.innerHTML='<tr><th>STT</th><th>MSP</th><th>Tên hàng</th><th>SL</th><th>ĐG</th><th>CK</th><th>Thành tiền</th><th>Thuế</th><th>Tổng</th></tr>';
+  table.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  let sttAll=0; let totalQty=0; let totalAmount=0;
+  hkdData[taxCode].invoices.forEach(inv=>{
+    inv.products.forEach(p=>{
+      sttAll++; totalQty+=p.quantity; totalAmount+=p.amount;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${sttAll}</td><td>${p.msp}</td><td>${p.name}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.discount}</td><td>${p.amount}</td><td>${p.taxRate}</td><td>${p.amount+(p.amount*p.taxRate/100)}</td>`;
+      tbody.appendChild(tr);
     });
   });
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
 
-  // Nhập ZIP tự động xử lý
-  document.getElementById('zipInput').addEventListener('change', async (e)=>{
-    const files = e.target.files;
-    if(!files.length) return;
-    document.getElementById('statusMsg').textContent = 'Đang xử lý...';
-    await handleZipFiles(files);
-    document.getElementById('statusMsg').textContent = `Đã nhập ${files.length} file.`;
+// Render tồn kho
+function renderStock(taxCode){
+  if(!hkdData[taxCode]) return;
+  const container=document.getElementById('tonkho');
+  container.innerHTML='';
+  const table=document.createElement('table'); table.border=1; table.cellPadding=3; table.style.width='100%';
+  const thead=document.createElement('thead');
+  thead.innerHTML='<tr><th>MSP</th><th>Tên</th><th>Đơn vị</th><th>SL tồn</th><th>ĐG</th><th>Giá trị</th></tr>';
+  table.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  hkdData[taxCode].tonkhoMain.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.msp}</td><td>${p.name}</td><td>${p.unit}</td><td>${p.quantity}</td><td>${p.price}</td><td>${p.amount}</td>`;
+    tbody.appendChild(tr);
   });
-  </script>
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+// Xuất hàng và kế toán sẽ render trong các file JS tương ứng
+</script>
 </body>
 </html>
