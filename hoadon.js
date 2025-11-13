@@ -1,27 +1,25 @@
-window.renderHoadon = function(){
-  const container = document.getElementById('hoadonTable');
-  container.innerHTML='';
-  for(const taxCode in hkdData){
-    const hkd = hkdData[taxCode];
-    const tbl = document.createElement('table');
-    const header = `<tr>
-      <th>STT</th><th>Số HĐ</th><th>Ngày</th><th>Người bán</th><th>Người mua</th>
-      <th>Tổng trước thuế</th><th>Thuế</th><th>Tổng HĐ</th><th>Trạng thái</th>
-    </tr>`;
-    tbl.innerHTML = header + hkd.invoices.map((inv,idx)=>`
-      <tr>
-        <td>${idx+1}</td>
-        <td>${inv.invoiceInfo.symbol}_${inv.invoiceInfo.number}</td>
-        <td>${inv.invoiceInfo.date}</td>
-        <td>${inv.sellerInfo.name}</td>
-        <td>${inv.buyerInfo.name}</td>
-        <td>${inv.totals.beforeTax}</td>
-        <td>${inv.totals.tax}</td>
-        <td>${inv.totals.total}</td>
-        <td>${inv.status.validation}</td>
-      </tr>
-    `).join('');
-    container.appendChild(document.createElement('h3')).innerText = `Công ty MST: ${taxCode}`;
-    container.appendChild(tbl);
+function renderHoadon(){
+  const container = document.getElementById('hoadon');
+  container.innerHTML = '';
+  for(const tax in hkdData){
+    const comp = hkdData[tax];
+    const table = document.createElement('table');
+    table.className = 'table table-bordered table-sm';
+    const header = document.createElement('tr');
+    header.innerHTML = '<th>STT</th><th>Mã HĐ</th><th>Ngày</th><th>Người mua</th><th>Trạng thái</th><th>Tổng tiền</th>';
+    table.appendChild(header);
+    comp.invoices.forEach((inv,i)=>{
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${i+1}</td>
+      <td>${inv.invoiceInfo.symbol}_${inv.invoiceInfo.number}</td>
+      <td>${inv.invoiceInfo.date}</td>
+      <td>${inv.buyerInfo.name}</td>
+      <td>${inv.status.validation}</td>
+      <td>${inv.totals.total.toLocaleString()}</td>`;
+      table.appendChild(row);
+    });
+    const title = document.createElement('h5'); title.textContent = `Công ty: ${tax}`;
+    container.appendChild(title);
+    container.appendChild(table);
   }
-};
+}
