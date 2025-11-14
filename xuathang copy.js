@@ -30,7 +30,6 @@ function initExportModule() {
  * @param {object} hkd - Dữ liệu HKD hiện tại.
  * @returns {object} - Tồn kho đã tổng hợp theo MSP.
  */
-/*
 function getAggregatedStock(hkd) {
     const aggregatedStock = {};
     
@@ -58,7 +57,7 @@ function getAggregatedStock(hkd) {
 
     return aggregatedStock;
 }
-*/
+
 // Cập nhật danh sách sản phẩm có thể xuất (dựa trên tồn kho)
 function updateExportProductsList() {
     const productsListContainer = document.getElementById('export-products-list');
@@ -157,149 +156,132 @@ function calculateExportTotal() {
     return totalValue;
 }
 
-// =======================
-// Hàm tạo phiếu xuất hàng
-// =======================
+// Tạo phiếu xuất kho
 function createExport() {
     if (!window.currentCompany) {
-        alert('Vui lòng chọn công ty trước.');
+        alert('Vui lòng chọn công ty.');
         return;
     }
 
-    // KIỂM TRA SỰ TỒN TẠI CỦA CÁC PHẦN TỬ HTML
-    const exportDateElem = document.getElementById('export-date');
-    const customerNameElem = document.getElementById('customer-name');
-    const customerTaxCodeElem = document.getElementById('customer-taxcode');
-    const descriptionElem = document.getElementById('export-description');
+    const hkd = window.hkdData[window.currentCompany];
+    const exportDate = document.getElementById('export-date').value;
+    const exportNote = document.getElementById('export-note').value.trim();
+    const exportQuantities = document.querySelectorAll('.export-quantity');
+    const aggregatedStock = getAggregatedStock(hkd);
     
-    if (!exportDateElem || !customerNameElem) {
-        alert('Không tìm thấy form xuất hàng. Vui lòng kiểm tra lại giao diện.');
+    if (!exportDate) {
+        alert('Vui lòng chọn ngày xuất.');
         return;
     }
 
-    const exportDate = exportDateElem.value;
-    const customerName = customerNameElem.value;
-    const customerTaxCode = customerTaxCodeElem ? customerTaxCodeElem.value : '';
-    const description = descriptionElem ? descriptionElem.value : '';
-
-    if (!exportDate || !customerName) {
-        alert('Vui lòng nhập ngày và tên khách hàng.');
-        return;
-    }
-
-    // Lấy danh sách sản phẩm từ form
     const exportProducts = [];
-    let totalAmount = 0;
-
-    const productRows = document.querySelectorAll('.export-product-row');
-    if (productRows.length === 0) {
-        alert('Vui lòng thêm ít nhất một sản phẩm.');
-        return;
-    }
-
-    productRows.forEach(row => {
-        const mspElem = row.querySelector('.product-msp');
-        const quantityElem = row.querySelector('.product-quantity');
-        const priceElem = row.querySelector('.product-price');
+    let totalExportValue = 0;
+    
+    // 1. Thu thập dữ liệu xuất và kiểm tra tồn kho
+    for (const input of exportQuantities) {
+        const msp = input.getAttribute('data-msp');
+        const quantity = parseFloat(input.value) || 0;
+        const checkbox = document.querySelector(`.export-product-check[data-msp="${msp}"]`);
         
-        // Kiểm tra sự tồn tại của các phần tử
-        if (!mspElem || !quantityElem || !priceElem) return;
-        
-        const msp = mspElem.value;
-        const quantity = parseFloat(quantityElem.value) || 0;
-        const price = parseFloat(priceElem.value) || 0;
-        const amount = quantity * price;
+        if (checkbox && checkbox.checked && quantity > 0) {
+            const stockItem = aggregatedStock[msp];
+            
+            if (!stockItem || quantity > stockItem.quantity) {
+                 alert(`Lỗi: Số lượng xuất (${quantity}) vượt quá số lượng tồn (${stockItem ? stockItem.quantity : 0}) cho sản phẩm ${msp}.`);
+                return;
+            }
+            
+            const price = stockItem.avgPrice;
+            const amount = accountingRound(quantity * price);
+            totalExportValue = accountingRound(totalExportValue + amount);
 
-        if (msp && quantity > 0) {
             exportProducts.push({
                 msp: msp,
+                name: stockItem.name,
+                unit: stockItem.unit,
                 quantity: quantity,
                 price: price,
                 amount: amount
             });
-            totalAmount += amount;
         }
-    });
+    }
 
     if (exportProducts.length === 0) {
-        alert('Vui lòng thêm ít nhất một sản phẩm hợp lệ.');
+        alert('Vui lòng chọn ít nhất một sản phẩm và nhập số lượng xuất.');
         return;
     }
 
-    // Tạo bản ghi xuất hàng mới
-    const newExportRecord = {
-        id: 'PX_' + Date.now(),
+    if (!confirm(`Xác nhận tạo phiếu xuất với tổng giá trị VỐN ${window.formatCurrency(totalExportValue)}?`)) {
+        return;
+    }
+
+    // 2. Cập nhật tồn kho (trừ số lượng và giá trị vốn) - ÁP DỤNG LÀM TRÒN
+    exportProducts.forEach(expProduct => {
+        let remainingQtyToSubtract = expProduct.quantity;
+        
+        // Trừ từ các lô nhập có sẵn trong tonkhoMain (trừ theo lô)
+        for (let i = 0; i < hkd.tonkhoMain.length && remainingQtyToSubtract > 0; i++) {
+            let stock = hkd.tonkhoMain[i];
+            if (stock.msp === expProduct.msp && stock.quantity > 0) {
+                if (remainingQtyToSubtract >= stock.quantity) {
+                    // Trừ hết lô này
+                    remainingQtyToSubtract -= stock.quantity;
+                    stock.amount = 0; 
+                    stock.quantity = 0; 
+                } else {
+                    // Trừ một phần - ÁP DỤNG LÀM TRÒN
+                    const ratio = remainingQtyToSubtract / stock.quantity;
+                    stock.amount = accountingRound(stock.amount - (stock.amount * ratio));
+                    stock.quantity = accountingRound(stock.quantity - remainingQtyToSubtract);
+                    remainingQtyToSubtract = 0;
+                }
+            }
+        }
+    });
+
+    // Loại bỏ các mục có số lượng <= 0
+    hkd.tonkhoMain = hkd.tonkhoMain.filter(p => p.quantity > 0);
+
+    // 3. Ghi nhận phiếu xuất (ÁP DỤNG LÀM TRÒN)
+    const exportId = `PX-${new Date().getTime().toString().slice(-6)}`;
+    const newExport = {
+        id: exportId,
         date: exportDate,
-        customerName: customerName,
-        customerTaxCode: customerTaxCode,
-        description: description,
+        note: exportNote,
         products: exportProducts,
-        totalAmount: totalAmount,
-        status: 'completed',
-        createdAt: new Date().toISOString()
+        totalValue: accountingRound(totalExportValue)
     };
 
-    // Lưu vào dữ liệu
-    const hkd = hkdData[window.currentCompany];
+    // Đảm bảo mảng exports tồn tại
     if (!hkd.exports) {
         hkd.exports = [];
     }
-    hkd.exports.push(newExportRecord);
-
-    // Cập nhật tồn kho
-    updateStockAfterExport(exportProducts, newExportRecord);
-
-    // Hiển thị thông báo
-    alert(`Đã tạo phiếu xuất hàng thành công!\nTổng tiền: ${formatCurrency(totalAmount)}`);
-
-    // Reset form
-    const exportForm = document.getElementById('export-form');
-    if (exportForm) exportForm.reset();
     
-    const productsContainer = document.getElementById('export-products-container');
-    if (productsContainer) productsContainer.innerHTML = '';
+    hkd.exports.unshift(newExport); 
 
-    // Cập nhật giao diện
-    renderExportList();
+    // 4. Cập nhật giao diện - QUAN TRỌNG: THÊM CẬP NHẬT THỐNG KÊ KẾ TOÁN
+    updateExportProductsList();
+    renderExportHistory();
     if (typeof window.renderStock === 'function') window.renderStock();
-    if (typeof window.updateAccountingStats === 'function') window.updateAccountingStats();
-
+    
+    // 🔥 QUAN TRỌNG: Cập nhật thống kê kế toán sau khi xuất hàng
+    if (typeof window.updateAccountingStats === 'function') {
+        window.updateAccountingStats();
+    }
+    
+    // 🔥 QUAN TRỌNG: Tích hợp với hệ thống kế toán
+    if (typeof window.integrateSaleAccounting === 'function') {
+        window.integrateSaleAccounting(newExport, window.currentCompany);
+    }
+    
+    // Reset form
+    document.getElementById('export-note').value = '';
+    
+    alert(`Đã tạo phiếu xuất ${exportId} thành công và cập nhật tồn kho!`);
+    
     // Lưu dữ liệu
     if (typeof window.saveData === 'function') {
         window.saveData();
-    }
-}
-
-// =======================
-// Hàm cập nhật tồn kho sau khi xuất hàng
-// =======================
-function updateStockAfterExport(exportProducts, exportRecord) {
-    if (!window.currentCompany) return;
-    
-    const hkd = hkdData[window.currentCompany];
-    
-    exportProducts.forEach(exportItem => {
-        // Tìm sản phẩm trong tồn kho
-        const stockItem = hkd.tonkhoMain.find(item => item.msp === exportItem.msp);
-        
-        if (stockItem) {
-            // Trừ số lượng tồn kho
-            stockItem.quantity -= exportItem.quantity;
-            
-            // Đảm bảo số lượng không âm
-            if (stockItem.quantity < 0) {
-                stockItem.quantity = 0;
-            }
-            
-            console.log(`✅ Đã trừ tồn kho: ${exportItem.msp} - SL: -${exportItem.quantity}`);
-        } else {
-            console.warn(`⚠️ Không tìm thấy sản phẩm ${exportItem.msp} trong tồn kho`);
-        }
-    });
-    
-    // 🔥 QUAN TRỌNG: Tích hợp với hệ thống kế toán
-    if (typeof window.integrateExportAccounting === 'function') {
-        window.integrateExportAccounting(exportRecord, window.currentCompany);
     }
 }
 

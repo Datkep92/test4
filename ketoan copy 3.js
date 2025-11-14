@@ -477,54 +477,117 @@ function saveAccountingData() {
     });
 }
 
-// File: ketoan.js
-
+/**
+ * Tích hợp bút toán điều chỉnh tồn kho
+ */
 function integrateStockAdjustment(adjustmentEntry) {
-    const system = getCurrentAccountingSystem();
-    const isIncrease = adjustmentEntry.amount > 0;
-    const absAmount = Math.abs(adjustmentEntry.amount);
-    
-    if (absAmount === 0) return;
+    if (!window.currentCompany) {
+        console.error('❌ Chưa chọn công ty để tích hợp kế toán');
+        return;
+    }
 
-    const transaction = {
+    const hkd = hkdData[window.currentCompany];
+    
+    // ĐẢM BẢO MẢNG accountingTransactions TỒN TẠI
+    if (!hkd.accountingTransactions) {
+        hkd.accountingTransactions = [];
+    }
+
+    const quantityDifference = adjustmentEntry.quantity;
+    const amountDifference = adjustmentEntry.amount;
+
+    console.log(`📊 Tích hợp điều chỉnh tồn kho: ${adjustmentEntry.msp}, SL: ${quantityDifference}, GT: ${amountDifference}`);
+
+    // Tạo bút toán điều chỉnh
+    const accountingEntry = {
+        id: `ADJ-${Date.now()}`,
         date: adjustmentEntry.date,
         description: adjustmentEntry.description,
         reference: adjustmentEntry.id,
-        details: []
+        type: 'STOCK_ADJUSTMENT',
+        status: 'completed',
+        transactions: []
     };
-    
-    // ... (Giữ nguyên logic tạo bút toán Nợ/Có)
-    if (isIncrease) {
-        // Nợ 156 / Có 711
-        transaction.details.push({
-            debitAccount: '156', 
-            creditAccount: '711', 
-            amount: absAmount,
-            description: `Điều chỉnh tăng tồn kho ${adjustmentEntry.msp} (Thừa). Chi tiết: ${adjustmentEntry.description}`
+
+    if (quantityDifference > 0) {
+        // Điều chỉnh tăng tồn kho (Thừa hàng)
+        // Nợ TK 156 - Hàng hóa
+        // Có TK 711 - Thu nhập khác
+        accountingEntry.transactions.push({
+            account: '156', // Hàng hóa
+            debit: Math.abs(amountDifference),
+            credit: 0,
+            description: `Điều chỉnh tăng tồn kho ${adjustmentEntry.msp}`
         });
-    } else {
-        // Nợ 632 / Có 156
-        transaction.details.push({
-            debitAccount: '632', 
-            creditAccount: '156', 
-            amount: absAmount,
-            description: `Điều chỉnh giảm tồn kho ${adjustmentEntry.msp} (Thiếu/Hỏng). Chi tiết: ${adjustmentEntry.description}`
+        accountingEntry.transactions.push({
+            account: '711', // Thu nhập khác
+            debit: 0,
+            credit: Math.abs(amountDifference),
+            description: `Điều chỉnh tăng tồn kho ${adjustmentEntry.msp}`
         });
+    } else if (quantityDifference < 0) {
+        // Điều chỉnh giảm tồn kho (Thiếu hàng, hỏng)
+        // Nợ TK 632 - Giá vốn hàng bán
+        // Có TK 156 - Hàng hóa
+        accountingEntry.transactions.push({
+            account: '632', // Giá vốn hàng bán
+            debit: Math.abs(amountDifference),
+            credit: 0,
+            description: `Điều chỉnh giảm tồn kho ${adjustmentEntry.msp}`
+        });
+        accountingEntry.transactions.push({
+            account: '156', // Hàng hóa
+            debit: 0,
+            credit: Math.abs(amountDifference),
+            description: `Điều chỉnh giảm tồn kho ${adjustmentEntry.msp}`
+        });
+    } else if (amountDifference !== 0) {
+        // Chỉ điều chỉnh giá trị (không thay đổi số lượng)
+        if (amountDifference > 0) {
+            // Tăng giá trị tồn kho
+            accountingEntry.transactions.push({
+                account: '156', // Hàng hóa
+                debit: Math.abs(amountDifference),
+                credit: 0,
+                description: `Điều chỉnh tăng giá trị ${adjustmentEntry.msp}`
+            });
+            accountingEntry.transactions.push({
+                account: '711', // Thu nhập khác
+                debit: 0,
+                credit: Math.abs(amountDifference),
+                description: `Điều chỉnh tăng giá trị ${adjustmentEntry.msp}`
+            });
+        } else {
+            // Giảm giá trị tồn kho
+            accountingEntry.transactions.push({
+                account: '632', // Giá vốn hàng bán
+                debit: Math.abs(amountDifference),
+                credit: 0,
+                description: `Điều chỉnh giảm giá trị ${adjustmentEntry.msp}`
+            });
+            accountingEntry.transactions.push({
+                account: '156', // Hàng hóa
+                debit: 0,
+                credit: Math.abs(amountDifference),
+                description: `Điều chỉnh giảm giá trị ${adjustmentEntry.msp}`
+            });
+        }
     }
 
-    // Ghi nhận bút toán vào sổ nhật ký chung và sổ cái
-    system.generalJournal.push(transaction);
-    transaction.details.forEach(detail => {
-        system.ledger.recordEntry(detail.debitAccount, transaction.date, transaction.description, detail.amount, 'debit', transaction.reference);
-        system.ledger.recordEntry(detail.creditAccount, transaction.date, transaction.description, detail.amount, 'credit', transaction.reference);
-    });
-
-    // Cập nhật lại thống kê và LƯU DỮ LIỆU BẮT BUỘC
-    window.updateAccountingStats();
-    window.saveAccountingData(); // <--- ĐÃ THÊM LƯU DỮ LIỆU BẮT BUỘC
-
-    if (typeof window.showToast === 'function') {
-        window.showToast(`✅ Đã tích hợp bút toán điều chỉnh kho (TK 156).`, 3000, 'success');
+    // THÊM KIỂM TRA TRƯỚC KHI PUSH
+    if (accountingEntry.transactions.length > 0) {
+        hkd.accountingTransactions.push(accountingEntry);
+        console.log(`✅ Đã tích hợp bút toán điều chỉnh tồn kho: ${adjustmentEntry.msp}`);
+        
+        // Cập nhật giao diện
+        if (typeof updateAccountingStats === 'function') {
+            updateAccountingStats();
+        }
+        if (typeof renderAccountingEntries === 'function') {
+            renderAccountingEntries();
+        }
+    } else {
+        console.warn('⚠️ Không có bút toán nào được tạo cho điều chỉnh tồn kho');
     }
 }
 // Tích hợp tự động khi nhập hóa đơn
@@ -1057,67 +1120,45 @@ function showTrialBalance() {
 // =======================
 
 function updateAccountingStats() {
-    const statsContainer = document.getElementById('accounting-stats');
-    if (!statsContainer || !window.currentCompany || !hkdData[window.currentCompany]) return;
+    const totalInvoicesEl = document.getElementById('total-invoices');
+    const totalInvoiceValueEl = document.getElementById('total-invoice-value');
+    const totalProductsEl = document.getElementById('total-products');
+    const totalStockValueEl = document.getElementById('total-stock-value');
 
-    const hkd = hkdData[window.currentCompany];
+    if (!totalInvoicesEl || !window.currentCompany) return;
+
+    const hkd = window.hkdData[window.currentCompany];
+    if (!hkd) return;
+
+    // Tính tổng số hóa đơn
+    const totalInvoices = (hkd.invoices || []).length;
     
-    // DEBUG: Kiểm tra dữ liệu
-    console.log('🔍 Kiểm tra thống kê kế toán:', {
-        company: window.currentCompany,
-        hasTransactions: !!hkd.accountingTransactions,
-        transactionCount: hkd.accountingTransactions ? hkd.accountingTransactions.length : 0
+    // Tính tổng giá trị hóa đơn
+    let totalInvoiceValue = 0;
+    (hkd.invoices || []).forEach(invoice => {
+        totalInvoiceValue += invoice.summary.calculatedTotal || 0;
     });
 
-    if (!hkd.accountingTransactions || hkd.accountingTransactions.length === 0) {
-        statsContainer.innerHTML = `
-            <div class="stats-grid-accounting">
-                <div class="stat-card-accounting">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-value-accounting">0</div>
-                    <div class="stat-label-accounting">Tổng nghiệp vụ</div>
-                </div>
-                <div class="stat-card-accounting">
-                    <div class="stat-icon">💰</div>
-                    <div class="stat-value-accounting">0</div>
-                    <div class="stat-label-accounting">Tổng phát sinh</div>
-                </div>
-            </div>
-        `;
-        return;
-    }
-
-    // Tính toán thống kê
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-
-    const monthlyEntries = hkd.accountingTransactions.filter(entry => {
-        const entryDate = new Date(entry.date);
-        return entryDate.getMonth() + 1 === currentMonth && entryDate.getFullYear() === currentYear;
+    // Tính tổng số sản phẩm tồn kho
+    let totalProducts = 0;
+    let totalStockValue = 0;
+    const productMap = new Map();
+    
+    (hkd.tonkhoMain || []).forEach(product => {
+        if (product.category === 'hang_hoa' && product.quantity > 0) {
+            if (!productMap.has(product.msp)) {
+                productMap.set(product.msp, true);
+                totalProducts++;
+            }
+            totalStockValue += product.amount || 0;
+        }
     });
 
-    let totalAmount = 0;
-    monthlyEntries.forEach(entry => {
-        entry.transactions.forEach(t => {
-            totalAmount += (t.debit || 0) + (t.credit || 0);
-        });
-    });
-
-    statsContainer.innerHTML = `
-        <div class="stats-grid-accounting">
-            <div class="stat-card-accounting">
-                <div class="stat-icon">📊</div>
-                <div class="stat-value-accounting">${monthlyEntries.length}</div>
-                <div class="stat-label-accounting">Tổng nghiệp vụ</div>
-            </div>
-            <div class="stat-card-accounting">
-                <div class="stat-icon">💰</div>
-                <div class="stat-value-accounting">${formatCurrency(totalAmount)}</div>
-                <div class="stat-label-accounting">Tổng phát sinh</div>
-            </div>
-        </div>
-    `;
+    // Cập nhật giao diện
+    totalInvoicesEl.textContent = totalInvoices.toLocaleString('vi-VN');
+    totalInvoiceValueEl.textContent = window.formatCurrency(totalInvoiceValue);
+    totalProductsEl.textContent = totalProducts.toLocaleString('vi-VN');
+    totalStockValueEl.textContent = window.formatCurrency(totalStockValue);
 }
 
 function generateMonthlyReport() {

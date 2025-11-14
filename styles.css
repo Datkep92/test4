@@ -1296,3 +1296,27 @@ tr:hover {
         border: 1px solid #000;
     }
 }
+
+.accounting-tabs {
+    display: flex;
+    flex-wrap: wrap; /* 👈 Cho phép xuống dòng */
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.accounting-tab-btn {
+    flex: 1 1 18%; /* 👈 Mỗi nút chiếm khoảng 18% chiều ngang */
+    min-width: 160px; /* Đảm bảo nút không quá nhỏ */
+    padding: 8px 10px;
+    background: #f3f4f6;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.accounting-tab-btn.active {
+    background: #007bff;
+    color: white;
+}

@@ -116,15 +116,7 @@ function accountingRound(amount) {
     return Math.round(amount);
 }
 window.accountingRound = accountingRound;
-function saveData() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(window.hkdData));
-        console.log('Dữ liệu đã được lưu vào LocalStorage.');
-    } catch (e) {
-        console.error('Lỗi khi lưu dữ liệu vào LocalStorage:', e);
-        // Có thể thông báo cho người dùng
-    }
-}
+
 
 // SỬA: Kiểm tra tồn tại trước khi ghi đè
 if (typeof window.handleZipFiles === 'function') {
@@ -139,7 +131,30 @@ if (typeof window.handleZipFiles === 'function') {
 } else {
     console.warn('handleZipFiles chưa được định nghĩa, bỏ qua ghi đè');
 }
+// Thêm vào ketoan.js
+function debugAccountingData() {
+    if (!window.currentCompany) {
+        console.log('❌ Chưa chọn công ty');
+        return;
+    }
+    
+    const hkd = hkdData[window.currentCompany];
+    console.log('🐛 DEBUG DỮ LIỆU KẾ TOÁN:', {
+        company: window.currentCompany,
+        companyName: hkd.name,
+        hasAccountingData: !!hkd.accountingTransactions,
+        accountingTransactions: hkd.accountingTransactions,
+        allCompanies: Object.keys(hkdData).map(key => ({
+            company: key,
+            name: hkdData[key].name,
+            hasAccounting: !!hkdData[key].accountingTransactions,
+            count: hkdData[key].accountingTransactions ? hkdData[key].accountingTransactions.length : 0
+        }))
+    });
+}
 
+// Gọi hàm debug khi cần
+window.debugAccountingData = debugAccountingData;
 function saveData() {
     try {
         // Lưu dữ liệu kế toán trước khi lưu toàn bộ
@@ -299,6 +314,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof window.initStockModule === 'function') window.initStockModule();
     if (typeof window.initExportModule === 'function') window.initExportModule();
     if (typeof window.initAccountingModule === 'function') window.initAccountingModule();
+     if (typeof window.initInvoiceModule === 'function') window.initInvoiceModule();
+    if (typeof window.initStockModule === 'function') window.initStockModule();
+    if (typeof window.initExportModule === 'function') window.initExportModule();
+    if (typeof window.initAccountingModule === 'function') window.initAccountingModule();
 
     // 3. Thiết lập chuyển đổi tab
     setupTabSwitching();
@@ -348,4 +367,141 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     console.log('Ứng dụng đã khởi động hoàn tất.');
+});
+
+// Thêm hàm khởi tạo tab xuất hàng
+function initExportTab() {
+    console.log('🔄 Đang khởi tạo tab xuất hàng...');
+    
+    // Đảm bảo container tồn tại
+    const exportTab = document.getElementById('export-tab');
+    if (!exportTab) {
+        console.error('❌ Không tìm thấy tab xuất hàng');
+        return;
+    }
+    
+    // Render form xuất hàng nếu chưa có
+    if (!document.getElementById('export-form')) {
+        exportTab.innerHTML = `
+            <div class="card">
+                <div class="card-header">Tạo Phiếu Xuất Hàng</div>
+                <div class="card-body">
+                    <form id="export-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="export-date">Ngày xuất hàng</label>
+                                <input type="date" id="export-date" class="form-control" value="${new Date().toISOString().substring(0, 10)}">
+                            </div>
+                            <div class="form-group">
+                                <label for="customer-name">Tên khách hàng *</label>
+                                <input type="text" id="customer-name" class="form-control" placeholder="Nhập tên khách hàng" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="customer-taxcode">Mã số thuế</label>
+                                <input type="text" id="customer-taxcode" class="form-control" placeholder="MST khách hàng">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="export-description">Diễn giải</label>
+                            <textarea id="export-description" class="form-control" placeholder="Ghi chú về phiếu xuất"></textarea>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                Danh sách sản phẩm
+                                <button type="button" id="add-export-product" class="btn-success btn-sm">Thêm sản phẩm</button>
+                            </div>
+                            <div class="card-body">
+                                <div id="export-products-container">
+                                    <!-- Các dòng sản phẩm sẽ được thêm ở đây -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: right; margin-top: 20px;">
+                            <button type="button" id="create-export-btn" class="btn-success">Tạo phiếu xuất</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">Danh sách phiếu xuất hàng</div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã phiếu</th>
+                                <th>Ngày</th>
+                                <th>Khách hàng</th>
+                                <th>MST</th>
+                                <th>SL SP</th>
+                                <th>Tổng tiền</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="export-list">
+                            <!-- Danh sách phiếu xuất sẽ được load ở đây -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Khởi tạo module xuất hàng
+    if (typeof window.initExportModule === 'function') {
+        setTimeout(() => {
+            window.initExportModule();
+        }, 100);
+    }
+}
+
+// Cập nhật hàm xử lý tab
+document.addEventListener('DOMContentLoaded', function() {
+    const tabLinks = document.querySelectorAll('.tab-link');
+    
+    tabLinks.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            
+            // Ẩn tất cả các tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Hiển thị tab được chọn
+            const activeTab = document.getElementById(tabName + '-tab');
+            if (activeTab) {
+                activeTab.style.display = 'block';
+            }
+            
+            // Khởi tạo module tương ứng
+            setTimeout(() => {
+                switch(tabName) {
+                    case 'invoice':
+                        if (typeof window.initInvoiceModule === 'function') window.initInvoiceModule();
+                        break;
+                    case 'stock':
+                        if (typeof window.initStockModule === 'function') window.initStockModule();
+                        break;
+                    case 'export':
+                        initExportTab(); // Sử dụng hàm mới
+                        break;
+                    case 'accounting':
+                        if (typeof window.initAccountingModule === 'function') window.initAccountingModule();
+                        break;
+                }
+            }, 50);
+        });
+    });
+    
+    // Khởi tạo tab mặc định
+    const defaultTab = document.querySelector('.tab-link.active');
+    if (defaultTab) {
+        defaultTab.click();
+    } else if (tabLinks.length > 0) {
+        tabLinks[0].click();
+    }
 });
